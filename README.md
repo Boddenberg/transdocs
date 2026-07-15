@@ -35,7 +35,7 @@ formam uma segunda barreira.
 
 ## Fluxo de um documento
 
-1. O arquivo é lido em blocos e limitado a 25 MB.
+1. O arquivo é lido em blocos; PDFs aceitam até 50 MB e imagens até 25 MB.
 2. MIME e assinatura binária são validados; o nome é sanitizado.
 3. O SHA-256 evita upload e chamada de IA duplicados para a mesma conta.
 4. O registro é criado e o arquivo vai para um caminho privado por usuário/documento.
@@ -77,7 +77,11 @@ documentação interativa em `/docs`.
 | `OPENAI_API_KEY` | Segredo somente do back-end |
 | `OPENAI_MODEL` | Modelo com visão e Structured Outputs |
 | `OPENAI_TIMEOUT_SECONDS` | Timeout da chamada, padrão 90 s |
-| `MAX_UPLOAD_BYTES` | Limite de arquivo, padrão 25 MB |
+| `OPENAI_INPUT_USD_PER_MILLION` | Preço estimado de 1 milhão de tokens de entrada |
+| `OPENAI_OUTPUT_USD_PER_MILLION` | Preço estimado de 1 milhão de tokens de saída |
+| `USD_BRL_RATE` | Cotação usada para estimar o custo em reais |
+| `MAX_UPLOAD_BYTES` | Limite de PDF, padrão 50 MB |
+| `MAX_FULL_ANALYSIS_BYTES` | Acima deste limite, o PDF exige análise só da primeira página |
 | `MAX_EXTRACTED_TEXT_CHARS` | Teto de texto enviado ao modelo |
 | `SIGNED_URL_TTL_SECONDS` | Validade da URL privada, padrão 300 s |
 
@@ -104,7 +108,7 @@ A migration cria:
 - `processamentos`;
 - índices por usuário/status/data;
 - RLS forçada e políticas `auth.uid() = usuario_id`;
-- bucket privado, limite de 25 MB e políticas por primeira pasta do usuário.
+- bucket privado, limite de 50 MB e políticas por primeira pasta do usuário.
 
 ## OpenAI
 
@@ -114,6 +118,9 @@ injeção documental e JSON Schema estrito. O retorno é validado antes de salva
 
 O processamento registra somente modelo, estratégia e tokens; documento, prompt e
 conteúdo extraído não são enviados aos logs.
+
+O histórico calcula o custo estimado usando os tokens registrados, os preços configurados
+e a cotação `USD_BRL_RATE`. O valor é informativo e pode diferir da cobrança final.
 
 ## Endpoints principais
 
@@ -161,7 +168,8 @@ etapas externas ainda necessárias.
 - O processador usa `BackgroundTasks` do processo web. Em escala ou com tarefas longas,
   deve migrar para uma fila persistente com worker separado.
 - Não há OCR local; documentos digitalizados usam a capacidade visual do modelo.
-- O limite inicial é de 25 MB e os formatos Office não são aceitos.
+- PDFs aceitam até 50 MB; acima de 25 MB é obrigatório analisar somente a primeira página.
+- Imagens aceitam até 25 MB e os formatos Office não são aceitos.
 - Não há organizações/cartórios compartilhados; `usuario_id` centraliza o escopo e
   permite introduzir esse contexto futuramente sem misturar contas.
 - Resultados de IA exigem conferência; não existe validação jurídica automática.
