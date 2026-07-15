@@ -7,6 +7,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencias import UsuarioAtual
 from app.aplicacao.preenchimentos.catalogo import listar_tipos_preenchimento
+from app.aplicacao.preenchimentos.modelos import obter_servico_modelos_preenchimento
 from app.aplicacao.preenchimentos.processador import obter_processador_preenchimento
 from app.aplicacao.preenchimentos.servico import (
     FonteUploadPreenchimento,
@@ -70,24 +71,90 @@ async def transcrever_audio(
     return TranscricaoAudio(texto=texto)
 
 
+@router.get("/modelos")
+def listar_modelos(
+    usuario: UsuarioAtual,
+    tipo_documento: Annotated[str | None, Query(max_length=80)] = None,
+) -> list[dict[str, Any]]:
+    return obter_servico_modelos_preenchimento().listar(
+        usuario_id=usuario.id,
+        tipo_documento=tipo_documento,
+    )
+
+
+@router.post("/modelos", status_code=201)
+async def criar_modelo(
+    usuario: UsuarioAtual,
+    tipo_documento: Annotated[str, Form(max_length=80)],
+    nome: Annotated[str, Form(max_length=120)],
+    arquivo: Annotated[UploadFile, File(description="Modelo DOCX estruturado")],
+    descricao: Annotated[str, Form(max_length=400)] = "",
+) -> dict[str, Any]:
+    configuracoes = obter_configuracoes()
+    conteudo = await _ler_com_limite(arquivo, configuracoes.limite_upload_bytes)
+    validado = validar_arquivo_docx(
+        conteudo=conteudo,
+        nome=arquivo.filename,
+        tipo_mime=arquivo.content_type,
+        limite_bytes=configuracoes.limite_upload_bytes,
+    )
+    return obter_servico_modelos_preenchimento().criar(
+        usuario_id=usuario.id,
+        tipo_documento=tipo_documento,
+        nome=nome,
+        descricao=descricao,
+        arquivo=validado,
+    )
+
+
+@router.delete("/modelos/{modelo_id}")
+def excluir_modelo(modelo_id: UUID, usuario: UsuarioAtual) -> dict[str, bool]:
+    obter_servico_modelos_preenchimento().excluir(
+        usuario_id=usuario.id,
+        modelo_id=modelo_id,
+    )
+    return {"excluido": True}
+
+
 @router.post("", status_code=202)
 async def criar_preenchimento(
     usuario: UsuarioAtual,
     tarefas: BackgroundTasks,
     tipo_documento: Annotated[str, Form(max_length=80)],
-    arquivo_base: Annotated[UploadFile, File(description="Minuta DOCX")],
+    arquivo_base: Annotated[UploadFile | None, File(description="Minuta DOCX")] = None,
+    modelo_id: Annotated[str | None, Form(max_length=120)] = None,
     instrucoes_negociacao: Annotated[str, Form(max_length=8000)] = "",
     categorias_fontes: Annotated[list[str] | None, Form()] = None,
     arquivos_fontes: Annotated[list[UploadFile] | None, File()] = None,
 ) -> dict[str, Any]:
     configuracoes = obter_configuracoes()
-    conteudo_base = await _ler_com_limite(arquivo_base, configuracoes.limite_upload_bytes)
-    base = validar_arquivo_docx(
-        conteudo=conteudo_base,
-        nome=arquivo_base.filename,
-        tipo_mime=arquivo_base.content_type,
-        limite_bytes=configuracoes.limite_upload_bytes,
-    )
+    if (arquivo_base is None) == (modelo_id is None):
+        raise ErroRequisicao(
+            "Escolha um modelo pronto ou envie uma minuta DOCX, mas não os dois."
+        )
+    if modelo_id is not None:
+        modelo = obter_servico_modelos_preenchimento().resolver(
+            usuario_id=usuario.id,
+            modelo_id=modelo_id,
+        )
+        base = modelo.arquivo
+        modo_criacao = "documento_completo"
+        modelo_referencia = modelo.id
+        modelo_nome = modelo.nome
+    else:
+        assert arquivo_base is not None
+        conteudo_base = await _ler_com_limite(
+            arquivo_base, configuracoes.limite_upload_bytes
+        )
+        base = validar_arquivo_docx(
+            conteudo=conteudo_base,
+            nome=arquivo_base.filename,
+            tipo_mime=arquivo_base.content_type,
+            limite_bytes=configuracoes.limite_upload_bytes,
+        )
+        modo_criacao = "completar_minuta"
+        modelo_referencia = None
+        modelo_nome = None
     fontes = await _validar_fontes(
         categorias_fontes or [],
         arquivos_fontes or [],
@@ -101,6 +168,9 @@ async def criar_preenchimento(
         arquivo_base=base,
         fontes=fontes,
         instrucoes_negociacao=instrucoes_negociacao,
+        modo_criacao=modo_criacao,
+        modelo_referencia=modelo_referencia,
+        modelo_nome=modelo_nome,
     )
     preenchimento_id = UUID(preenchimento["id"])
     tarefas.add_task(

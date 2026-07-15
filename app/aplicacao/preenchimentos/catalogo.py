@@ -14,8 +14,11 @@ _TIPOS: dict[str, dict[str, Any]] = {
         ),
         "arquivo_base": {
             "rotulo": "Minuta da escritura",
-            "descricao": "Arquivo DOCX que será preservado e preenchido nos marcadores existentes.",
-            "obrigatorio": True,
+            "descricao": (
+                "Opcional quando um modelo pronto da biblioteca for selecionado. "
+                "Se enviado, o DOCX será preservado e apenas seus marcadores serão preenchidos."
+            ),
+            "obrigatorio": False,
             "aceita": [".docx"],
         },
         "fontes": [

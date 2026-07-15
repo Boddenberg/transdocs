@@ -108,12 +108,14 @@ class ExtratorPreenchimentoOpenAI:
         campos: list[CampoPreenchimento],
         fontes: list[FonteParaPreenchimento],
         instrucoes_negociacao: str = "",
+        modo_criacao: str = "completar_minuta",
     ) -> RespostaPreenchimento:
         conteudo, evidencias = self._montar_conteudo(
             texto_minuta,
             campos,
             fontes,
             instrucoes_negociacao,
+            modo_criacao,
         )
         entrada = [{"role": "user", "content": conteudo}]
         try:
@@ -150,6 +152,7 @@ class ExtratorPreenchimentoOpenAI:
         campos: list[CampoPreenchimento],
         fontes: list[FonteParaPreenchimento],
         instrucoes_negociacao: str,
+        modo_criacao: str = "completar_minuta",
     ) -> tuple[list[dict[str, Any]], dict[str, _Evidencia]]:
         campos_json = [
             {
@@ -167,6 +170,7 @@ class ExtratorPreenchimentoOpenAI:
                 "type": "input_text",
                 "text": (
                     f"{ORIENTACAO_PREENCHIMENTO}\n\n"
+                    f"{_orientacao_modo_criacao(modo_criacao)}\n\n"
                     f"MINUTA BASE (fonte_id=minuta_base):\n{texto_minuta}\n\n"
                     f"LACUNAS:\n{json.dumps(campos_json, ensure_ascii=False)}"
                 ),
@@ -247,6 +251,24 @@ class ExtratorPreenchimentoOpenAI:
                 fonte.id, fonte.categoria, fonte.nome, None, True
             )
         return conteudo, evidencias
+
+
+def _orientacao_modo_criacao(modo_criacao: str) -> str:
+    if modo_criacao == "documento_completo":
+        return (
+            "MODO DOCUMENTO COMPLETO: a minuta é um modelo reutilizável. Cada marcador "
+            "[PREENCHER:...] ou [CAMPO:...] representa todo o bloco variável descrito no "
+            "rótulo, e deve ser redigido por completo quando houver fatos comprovados. "
+            "Use somente fatos presentes na declaração da negociação, na própria minuta "
+            "ou nos documentos enviados. Você pode acrescentar apenas conectivos e flexões "
+            "gramaticais necessários à redação, nunca pessoas, números, datas, condições, "
+            "qualificações ou fatos. Se faltar qualquer fato necessário para um bloco, "
+            "marque-o como ausente ou ambíguo e não fabrique conteúdo."
+        )
+    return (
+        "MODO COMPLETAR MINUTA: preserve todos os dados e todo o texto já existente. "
+        "Preencha exclusivamente as lacunas e os marcadores explícitos encontrados."
+    )
 
 
 def _validar_evidencias(

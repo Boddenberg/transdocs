@@ -64,6 +64,7 @@ class ProcessadorPreenchimento:
                 campos=analise.campos,
                 fontes=fontes,
                 instrucoes_negociacao=preenchimento.get("instrucoes_negociacao", ""),
+                modo_criacao=preenchimento.get("modo_criacao", "completar_minuta"),
             )
             self._concluir(
                 preenchimento_id,

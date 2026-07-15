@@ -53,8 +53,15 @@ class ServicoPreenchimentos:
         arquivo_base: ArquivoDocxValidado,
         fontes: list[FonteUploadPreenchimento],
         instrucoes_negociacao: str = "",
+        modo_criacao: str = "completar_minuta",
+        modelo_referencia: str | None = None,
+        modelo_nome: str | None = None,
     ) -> dict[str, Any]:
         obter_tipo_preenchimento(tipo_documento)
+        if modo_criacao not in {"completar_minuta", "documento_completo"}:
+            raise ErroRequisicao("O modo de criação selecionado é inválido.")
+        if modo_criacao == "documento_completo" and not modelo_referencia:
+            raise ErroRequisicao("Selecione o modelo usado para criar o documento completo.")
         self._validar_fontes(tipo_documento, fontes)
         instrucoes_negociacao = _limpar_instrucoes_negociacao(
             instrucoes_negociacao
@@ -85,6 +92,9 @@ class ServicoPreenchimentos:
                     "status": "pendente",
                     "resultado": {},
                     "instrucoes_negociacao": instrucoes_negociacao,
+                    "modo_criacao": modo_criacao,
+                    "modelo_referencia": modelo_referencia,
+                    "modelo_nome": modelo_nome,
                 }
             )
             criado = True

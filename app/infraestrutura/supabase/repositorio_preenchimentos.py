@@ -46,6 +46,54 @@ class RepositorioPreenchimentos:
         )
         return list(resposta.data or [])
 
+    def criar_modelo(self, dados: dict[str, Any]) -> dict[str, Any]:
+        return self._executar_um(
+            lambda: self._cliente.table("modelos_preenchimento").insert(dados).execute(),
+            "salvar o modelo de preenchimento",
+        )
+
+    def buscar_modelo(self, modelo_id: UUID, usuario_id: UUID) -> dict[str, Any] | None:
+        resposta = self._executar(
+            lambda: (
+                self._cliente.table("modelos_preenchimento")
+                .select("*")
+                .eq("id", str(modelo_id))
+                .eq("usuario_id", str(usuario_id))
+                .limit(1)
+                .execute()
+            ),
+            "consultar o modelo de preenchimento",
+        )
+        return _primeiro(resposta.data)
+
+    def listar_modelos(
+        self, *, usuario_id: UUID, tipo_documento: str | None = None
+    ) -> list[dict[str, Any]]:
+        def operacao():
+            consulta = (
+                self._cliente.table("modelos_preenchimento")
+                .select("*")
+                .eq("usuario_id", str(usuario_id))
+            )
+            if tipo_documento:
+                consulta = consulta.eq("tipo_documento", tipo_documento)
+            return consulta.order("criado_em", desc=True).execute()
+
+        resposta = self._executar(operacao, "listar os modelos de preenchimento")
+        return list(resposta.data or [])
+
+    def excluir_modelo(self, modelo_id: UUID, usuario_id: UUID) -> None:
+        self._executar(
+            lambda: (
+                self._cliente.table("modelos_preenchimento")
+                .delete()
+                .eq("id", str(modelo_id))
+                .eq("usuario_id", str(usuario_id))
+                .execute()
+            ),
+            "excluir o modelo de preenchimento",
+        )
+
     def atualizar(
         self, preenchimento_id: UUID, usuario_id: UUID, dados: dict[str, Any]
     ) -> dict[str, Any]:
