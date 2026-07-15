@@ -1,7 +1,7 @@
 # ThiagoDocs API
 
-API independente para leitura assistida, extração estruturada e conferência humana de
-PDFs e imagens. O ThiagoDocs não valida autenticidade nem validade jurídica: toda
+API independente para leitura assistida, extração estruturada, preenchimento de minutas e
+conferência humana de PDFs, imagens e DOCX. O ThiagoDocs não valida autenticidade nem validade jurídica: toda
 informação extraída deve ser conferida no documento original.
 
 ## Tecnologias
@@ -46,6 +46,12 @@ formam uma segunda barreira.
 9. Achados, origem, confiança, alertas, ausências e consumo técnico são persistidos.
 10. Correções e confirmações humanas geram histórico próprio.
 
+No preenchimento, a pessoa seleciona um tipo, envia uma minuta DOCX e adiciona fontes
+opcionais por categoria. A API detecta somente marcadores explícitos, preserva o texto já
+preenchido, exige fonte e trecho para cada sugestão e mantém lacunas sem comprovação
+intactas. O caso fica salvo para receber novos documentos depois e pode gerar uma versão
+parcial ou completa.
+
 Detalhes e estrutura do resultado: [docs/ARQUITETURA_E_FLUXO.md](docs/ARQUITETURA_E_FLUXO.md).
 
 ## Configuração local
@@ -75,6 +81,7 @@ documentação interativa em `/docs`.
 | `SUPABASE_SERVICE_ROLE_KEY` | Segredo somente do back-end |
 | `SUPABASE_DOCUMENTS_BUCKET` | Bucket privado, padrão `documentos` |
 | `SUPABASE_SUGGESTIONS_BUCKET` | Bucket privado dos prints de feedback, padrão `sugestoes` |
+| `SUPABASE_FILLINGS_BUCKET` | Bucket privado de minutas, fontes e resultados, padrão `preenchimentos` |
 | `SUGGESTIONS_ADMIN_KEY` | Chave longa usada somente na consulta administrativa de sugestões |
 | `OPENAI_API_KEY` | Segredo somente do back-end |
 | `OPENAI_MODEL` | Modelo com visão e Structured Outputs |
@@ -85,6 +92,7 @@ documentação interativa em `/docs`.
 | `MAX_UPLOAD_BYTES` | Limite de PDF, padrão 50 MB |
 | `MAX_FULL_ANALYSIS_BYTES` | Acima deste limite, o PDF exige análise só da primeira página |
 | `MAX_EXTRACTED_TEXT_CHARS` | Teto de texto enviado ao modelo |
+| `MAX_FILLING_SOURCES_BYTES` | Soma máxima das fontes enviadas por etapa de preenchimento |
 | `SIGNED_URL_TTL_SECONDS` | Validade da URL privada, padrão 300 s |
 | `MAX_SUGGESTION_ATTACHMENT_BYTES` | Limite por print/foto, padrão 10 MB |
 
@@ -141,6 +149,11 @@ e a cotação `USD_BRL_RATE`. O valor é informativo e pode diferir da cobrança
 | `PATCH /api/v1/documentos/{id}/revisao` | Marcar revisão completa |
 | `POST /api/v1/documentos/{id}/reprocessar` | Nova tentativa explícita |
 | `DELETE /api/v1/documentos/{id}` | Excluir arquivo e dados relacionados |
+| `GET /api/v1/preenchimentos/tipos` | Catálogo de tipos e fontes opcionais |
+| `POST /api/v1/preenchimentos` | Criar caso com minuta DOCX e fontes opcionais |
+| `POST /api/v1/preenchimentos/{id}/fontes` | Adicionar documentos faltantes e reanalisar |
+| `POST /api/v1/preenchimentos/{id}/gerar` | Gerar DOCX parcial ou completo |
+| `GET /api/v1/preenchimentos/{id}/arquivo` | URL privada do DOCX preenchido |
 | `POST /api/v1/sugestoes` | Enviar sugestão, erro ou dificuldade com até 3 imagens |
 | `GET /api/v1/sugestoes` | Consulta administrativa paginada, protegida por `X-Admin-Key` |
 
@@ -157,7 +170,7 @@ python -m compileall -q app
 
 - erros internos e stack traces nunca fazem parte da resposta;
 - logs não registram e-mail, token, conteúdo ou nome do documento;
-- tipos permitidos: PDF, JPEG, PNG e WEBP;
+- leitura: PDF, JPEG, PNG e WEBP; preenchimento: minuta DOCX e as mesmas fontes;
 - CORS de produção exige origens explícitas;
 - URL de arquivo expira e não há URL pública;
 - exclusão remove Storage e o `on delete cascade` limpa dados derivados.
@@ -176,7 +189,9 @@ etapas externas ainda necessárias.
   deve migrar para uma fila persistente com worker separado.
 - Não há OCR local; documentos digitalizados usam a capacidade visual do modelo.
 - PDFs aceitam até 50 MB; acima de 25 MB é obrigatório analisar somente a primeira página.
-- Imagens aceitam até 25 MB e os formatos Office não são aceitos.
+- Imagens aceitam até 25 MB. DOCX é aceito somente como minuta do fluxo de preenchimento.
+- A primeira configuração de preenchimento suporta escrituras públicas de venda e compra
+  com marcadores explícitos; novos modelos devem entrar no catálogo com seu contrato próprio.
 - Não há organizações/cartórios compartilhados; `usuario_id` centraliza o escopo e
   permite introduzir esse contexto futuramente sem misturar contas.
 - Resultados de IA exigem conferência; não existe validação jurídica automática.

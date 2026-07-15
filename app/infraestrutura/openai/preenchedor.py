@@ -1,0 +1,307 @@
+import base64
+import json
+import unicodedata
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import Any
+
+from openai import OpenAI
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from app.core.configuracao import Configuracoes, obter_configuracoes
+from app.core.erros import ErroConfiguracao
+from app.dominio.arquivos import ArquivoValidado
+from app.dominio.documentos import TipoDocumentoEnviado
+from app.dominio.falhas import FalhaOpenAI
+from app.dominio.preenchimentos import (
+    CampoPreenchimento,
+    ResultadoPreenchimento,
+    StatusCampoPreenchimento,
+)
+from app.infraestrutura.arquivos.leitor_pdf import extrair_texto_pdf
+from app.infraestrutura.openai.prompt_preenchimento import (
+    INSTRUCOES_PREENCHIMENTO,
+    ORIENTACAO_PREENCHIMENTO,
+)
+from app.infraestrutura.openai.schema_preenchimento import formato_resultado_preenchimento
+
+
+@dataclass(frozen=True, slots=True)
+class FonteParaPreenchimento:
+    id: str
+    categoria: str
+    nome: str
+    arquivo: ArquivoValidado
+
+
+@dataclass(frozen=True, slots=True)
+class RespostaPreenchimento:
+    resultado: ResultadoPreenchimento
+    modelo: str
+    tokens_entrada: int | None
+    tokens_saida: int | None
+
+
+class CampoRespostaIA(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    campo_id: str
+    status: StatusCampoPreenchimento
+    valor: str | None = Field(default=None, max_length=1000)
+    fonte_id: str | None = None
+    pagina: int | None = Field(default=None, ge=1)
+    trecho: str | None = Field(default=None, max_length=1200)
+    confianca: float = Field(ge=0, le=1)
+    justificativa: str = Field(max_length=800)
+
+    @field_validator("valor", "fonte_id", "trecho", mode="before")
+    @classmethod
+    def limpar_opcional(cls, valor: Any) -> Any:
+        if isinstance(valor, str):
+            return valor.strip() or None
+        return valor
+
+
+class ResultadoRespostaIA(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    campos: list[CampoRespostaIA]
+    alertas: list[str]
+
+
+@dataclass(frozen=True, slots=True)
+class _Evidencia:
+    id: str
+    categoria: str
+    nome: str
+    texto: str | None
+    visual: bool
+
+
+class ExtratorPreenchimentoOpenAI:
+    def __init__(self, cliente: OpenAI, configuracoes: Configuracoes) -> None:
+        self._cliente = cliente
+        self._configuracoes = configuracoes
+
+    def analisar(
+        self,
+        *,
+        tipo_documento: str,
+        texto_minuta: str,
+        campos: list[CampoPreenchimento],
+        fontes: list[FonteParaPreenchimento],
+    ) -> RespostaPreenchimento:
+        conteudo, evidencias = self._montar_conteudo(texto_minuta, campos, fontes)
+        entrada = [{"role": "user", "content": conteudo}]
+        try:
+            resposta = self._cliente.responses.create(
+                model=self._configuracoes.openai_modelo,
+                instructions=INSTRUCOES_PREENCHIMENTO,
+                input=entrada,
+                text={"format": formato_resultado_preenchimento()},
+                store=False,
+            )
+            bruto = ResultadoRespostaIA.model_validate_json(resposta.output_text)
+        except (ValidationError, json.JSONDecodeError) as erro:
+            raise FalhaOpenAI("A resposta de preenchimento não corresponde ao schema.") from erro
+        except Exception as erro:
+            raise FalhaOpenAI("Falha ao analisar as fontes do preenchimento.") from erro
+
+        resultado = _validar_evidencias(
+            tipo_documento=tipo_documento,
+            campos=campos,
+            bruto=bruto,
+            evidencias=evidencias,
+        )
+        uso = getattr(resposta, "usage", None)
+        return RespostaPreenchimento(
+            resultado=resultado,
+            modelo=self._configuracoes.openai_modelo,
+            tokens_entrada=getattr(uso, "input_tokens", None),
+            tokens_saida=getattr(uso, "output_tokens", None),
+        )
+
+    def _montar_conteudo(
+        self,
+        texto_minuta: str,
+        campos: list[CampoPreenchimento],
+        fontes: list[FonteParaPreenchimento],
+    ) -> tuple[list[dict[str, Any]], dict[str, _Evidencia]]:
+        campos_json = [
+            {
+                "campo_id": campo.id,
+                "rotulo": campo.rotulo,
+                "marcador": campo.marcador,
+                "contexto": campo.contexto,
+            }
+            for campo in campos
+        ]
+        texto_minuta = texto_minuta[: self._configuracoes.limite_texto_extraido]
+        conteudo: list[dict[str, Any]] = [
+            {
+                "type": "input_text",
+                "text": (
+                    f"{ORIENTACAO_PREENCHIMENTO}\n\n"
+                    f"MINUTA BASE (fonte_id=minuta_base):\n{texto_minuta}\n\n"
+                    f"LACUNAS:\n{json.dumps(campos_json, ensure_ascii=False)}"
+                ),
+            }
+        ]
+        evidencias: dict[str, _Evidencia] = {
+            "minuta_base": _Evidencia(
+                id="minuta_base",
+                categoria="minuta_base",
+                nome="Minuta da escritura",
+                texto=texto_minuta,
+                visual=False,
+            )
+        }
+        limite_por_fonte = max(
+            10_000,
+            self._configuracoes.limite_texto_extraido // max(1, len(fontes)),
+        )
+        for fonte in fontes:
+            cabecalho = (
+                f"FONTE fonte_id={fonte.id} categoria={fonte.categoria} "
+                f"nome={fonte.nome}"
+            )
+            if fonte.arquivo.tipo == TipoDocumentoEnviado.PDF:
+                texto_pdf = extrair_texto_pdf(fonte.arquivo.conteudo, limite_por_fonte)
+                if texto_pdf.possui_texto_legivel:
+                    conteudo.append(
+                        {"type": "input_text", "text": f"{cabecalho}\n{texto_pdf.texto}"}
+                    )
+                    evidencias[fonte.id] = _Evidencia(
+                        fonte.id, fonte.categoria, fonte.nome, texto_pdf.texto, False
+                    )
+                    continue
+                codificado = base64.b64encode(fonte.arquivo.conteudo).decode("ascii")
+                conteudo.extend(
+                    [
+                        {"type": "input_text", "text": cabecalho},
+                        {
+                            "type": "input_file",
+                            "filename": fonte.arquivo.nome_seguro,
+                            "file_data": f"data:application/pdf;base64,{codificado}",
+                        },
+                    ]
+                )
+            else:
+                codificado = base64.b64encode(fonte.arquivo.conteudo).decode("ascii")
+                conteudo.extend(
+                    [
+                        {"type": "input_text", "text": cabecalho},
+                        {
+                            "type": "input_image",
+                            "image_url": f"data:{fonte.arquivo.tipo_mime};base64,{codificado}",
+                            "detail": "high",
+                        },
+                    ]
+                )
+            evidencias[fonte.id] = _Evidencia(
+                fonte.id, fonte.categoria, fonte.nome, None, True
+            )
+        return conteudo, evidencias
+
+
+def _validar_evidencias(
+    *,
+    tipo_documento: str,
+    campos: list[CampoPreenchimento],
+    bruto: ResultadoRespostaIA,
+    evidencias: dict[str, _Evidencia],
+) -> ResultadoPreenchimento:
+    ids_esperados = {campo.id for campo in campos}
+    ids_recebidos = [campo.campo_id for campo in bruto.campos]
+    if len(ids_recebidos) != len(set(ids_recebidos)) or set(ids_recebidos) != ids_esperados:
+        raise FalhaOpenAI("A resposta não cobriu exatamente as lacunas da minuta.")
+    respostas = {campo.campo_id: campo for campo in bruto.campos}
+    validados: list[CampoPreenchimento] = []
+    alertas = list(bruto.alertas)
+    for campo in campos:
+        resposta = respostas[campo.id]
+        if resposta.status != StatusCampoPreenchimento.ENCONTRADO:
+            validados.append(
+                campo.model_copy(
+                    update={
+                        "status": resposta.status,
+                        "justificativa": resposta.justificativa,
+                    }
+                )
+            )
+            continue
+        evidencia = evidencias.get(resposta.fonte_id or "")
+        motivo_invalido = _motivo_evidencia_invalida(resposta, evidencia)
+        if motivo_invalido:
+            alertas.append(f"{campo.rotulo}: {motivo_invalido}")
+            validados.append(
+                campo.model_copy(
+                    update={
+                        "status": StatusCampoPreenchimento.AMBIGUO,
+                        "justificativa": motivo_invalido,
+                    }
+                )
+            )
+            continue
+        assert evidencia is not None
+        validados.append(
+            campo.model_copy(
+                update={
+                    "status": StatusCampoPreenchimento.ENCONTRADO,
+                    "valor": resposta.valor,
+                    "fonte_id": evidencia.id,
+                    "fonte_nome": evidencia.nome,
+                    "categoria_fonte": evidencia.categoria,
+                    "pagina": resposta.pagina,
+                    "trecho": resposta.trecho,
+                    "confianca": resposta.confianca,
+                    "autoaplicavel": (
+                        not evidencia.visual and resposta.confianca >= 0.9
+                    ),
+                    "justificativa": resposta.justificativa,
+                }
+            )
+        )
+    return ResultadoPreenchimento.criar(
+        tipo_documento=tipo_documento,
+        campos=validados,
+        alertas=alertas,
+    )
+
+
+def _motivo_evidencia_invalida(
+    resposta: CampoRespostaIA, evidencia: _Evidencia | None
+) -> str | None:
+    if not resposta.valor or not resposta.trecho or evidencia is None:
+        return "A sugestão não trouxe valor, trecho e fonte verificáveis."
+    valor = _normalizar_busca(resposta.valor)
+    trecho = _normalizar_busca(resposta.trecho)
+    if not valor or valor not in trecho:
+        return "O trecho informado não contém literalmente o valor sugerido."
+    if evidencia.texto is not None:
+        texto = _normalizar_busca(evidencia.texto)
+        if trecho not in texto and valor not in texto:
+            return "A evidência textual não contém o trecho ou valor sugerido."
+    return None
+
+
+def _normalizar_busca(texto: str) -> str:
+    sem_acentos = "".join(
+        caractere
+        for caractere in unicodedata.normalize("NFKD", texto.casefold())
+        if not unicodedata.combining(caractere)
+    )
+    return "".join(caractere for caractere in sem_acentos if caractere.isalnum())
+
+
+@lru_cache
+def obter_extrator_preenchimento_openai() -> ExtratorPreenchimentoOpenAI:
+    configuracoes = obter_configuracoes()
+    if not configuracoes.openai_api_key:
+        raise ErroConfiguracao("OpenAI", ["OPENAI_API_KEY"])
+    cliente = OpenAI(
+        api_key=configuracoes.openai_api_key,
+        timeout=configuracoes.openai_timeout_segundos,
+        max_retries=2,
+    )
+    return ExtratorPreenchimentoOpenAI(cliente, configuracoes)

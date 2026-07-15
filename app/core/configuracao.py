@@ -24,6 +24,9 @@ class Configuracoes(BaseSettings):
     supabase_bucket_sugestoes: str = Field(
         "sugestoes", validation_alias="SUPABASE_SUGGESTIONS_BUCKET"
     )
+    supabase_bucket_preenchimentos: str = Field(
+        "preenchimentos", validation_alias="SUPABASE_FILLINGS_BUCKET"
+    )
     sugestoes_admin_key: str = Field("", validation_alias="SUGGESTIONS_ADMIN_KEY")
 
     openai_api_key: str = Field("", validation_alias="OPENAI_API_KEY")
@@ -42,6 +45,9 @@ class Configuracoes(BaseSettings):
         25 * 1024 * 1024, validation_alias="MAX_FULL_ANALYSIS_BYTES"
     )
     limite_texto_extraido: int = Field(120_000, validation_alias="MAX_EXTRACTED_TEXT_CHARS")
+    limite_fontes_preenchimento_bytes: int = Field(
+        100 * 1024 * 1024, validation_alias="MAX_FILLING_SOURCES_BYTES"
+    )
     validade_url_assinada_segundos: int = Field(300, validation_alias="SIGNED_URL_TTL_SECONDS")
     limite_anexo_sugestao_bytes: int = Field(
         10 * 1024 * 1024, validation_alias="MAX_SUGGESTION_ATTACHMENT_BYTES"
