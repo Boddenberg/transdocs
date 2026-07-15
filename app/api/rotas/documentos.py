@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, File, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, Query, UploadFile
 from pydantic import BaseModel, Field, model_validator
 
 from app.api.dependencias import UsuarioAtual
@@ -36,6 +36,7 @@ async def enviar_documento(
     usuario: UsuarioAtual,
     tarefas: BackgroundTasks,
     arquivo: Annotated[UploadFile, File(description="PDF, JPG, PNG ou WEBP")],
+    somente_primeira_pagina: Annotated[bool, Form()] = False,
 ) -> dict[str, Any]:
     configuracoes = obter_configuracoes()
     conteudo = await _ler_com_limite(arquivo, configuracoes.limite_upload_bytes)
@@ -45,7 +46,11 @@ async def enviar_documento(
         tipo_mime=arquivo.content_type,
         limite_bytes=configuracoes.limite_upload_bytes,
     )
-    documento = obter_servico_documentos().registrar_upload(validado, usuario.id)
+    documento = obter_servico_documentos().registrar_upload(
+        validado,
+        usuario.id,
+        somente_primeira_pagina=somente_primeira_pagina,
+    )
     tarefas.add_task(
         obter_processador_documento().processar,
         UUID(documento["id"]),

@@ -16,6 +16,7 @@ CAMPOS_LISTAGEM = ",".join(
         "tipo_arquivo",
         "tamanho_bytes",
         "total_paginas",
+        "somente_primeira_pagina",
         "status",
         "revisado",
         "codigo_erro",
@@ -50,13 +51,20 @@ class RepositorioDocumentos:
         )
         return _primeiro(resposta.data)
 
-    def buscar_por_hash(self, hash_sha256: str, usuario_id: UUID) -> dict[str, Any] | None:
+    def buscar_por_hash(
+        self,
+        hash_sha256: str,
+        usuario_id: UUID,
+        *,
+        somente_primeira_pagina: bool,
+    ) -> dict[str, Any] | None:
         resposta = self._executar(
             lambda: (
                 self._cliente.table("documentos")
                 .select("*")
                 .eq("hash_sha256", hash_sha256)
                 .eq("usuario_id", str(usuario_id))
+                .eq("somente_primeira_pagina", somente_primeira_pagina)
                 .limit(1)
                 .execute()
             ),
@@ -149,6 +157,45 @@ class RepositorioDocumentos:
             "consultar a extração",
         )
         return _primeiro(resposta.data)
+
+    def listar_extracoes(
+        self, documento_ids: list[str], usuario_id: UUID
+    ) -> list[dict[str, Any]]:
+        if not documento_ids:
+            return []
+        resposta = self._executar(
+            lambda: (
+                self._cliente.table("extracoes_documentos")
+                .select("documento_id,resultado")
+                .eq("usuario_id", str(usuario_id))
+                .in_("documento_id", documento_ids)
+                .execute()
+            ),
+            "consultar os dados principais",
+        )
+        return list(resposta.data or [])
+
+    def listar_processamentos_recentes(
+        self, documento_ids: list[str], usuario_id: UUID
+    ) -> list[dict[str, Any]]:
+        if not documento_ids:
+            return []
+        resposta = self._executar(
+            lambda: (
+                self._cliente.table("processamentos")
+                .select(
+                    "documento_id,tokens_entrada,tokens_saida,modelo_ia,"
+                    "estrategia,concluido_em,iniciado_em"
+                )
+                .eq("usuario_id", str(usuario_id))
+                .eq("status", "concluido")
+                .in_("documento_id", documento_ids)
+                .order("iniciado_em", desc=True)
+                .execute()
+            ),
+            "consultar o consumo das análises",
+        )
+        return list(resposta.data or [])
 
     def salvar_extracao(self, dados: dict[str, Any]) -> dict[str, Any]:
         return self._executar_um(

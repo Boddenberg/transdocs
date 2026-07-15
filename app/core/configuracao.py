@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 from typing import Annotated, Any
 
@@ -24,8 +25,18 @@ class Configuracoes(BaseSettings):
     openai_api_key: str = Field("", validation_alias="OPENAI_API_KEY")
     openai_modelo: str = Field("gpt-5.4-mini", validation_alias="OPENAI_MODEL")
     openai_timeout_segundos: float = Field(90, validation_alias="OPENAI_TIMEOUT_SECONDS")
+    openai_preco_entrada_usd_milhao: Decimal = Field(
+        Decimal("0.75"), validation_alias="OPENAI_INPUT_USD_PER_MILLION"
+    )
+    openai_preco_saida_usd_milhao: Decimal = Field(
+        Decimal("4.50"), validation_alias="OPENAI_OUTPUT_USD_PER_MILLION"
+    )
+    cotacao_usd_brl: Decimal = Field(Decimal("5.50"), validation_alias="USD_BRL_RATE")
 
-    limite_upload_bytes: int = Field(25 * 1024 * 1024, validation_alias="MAX_UPLOAD_BYTES")
+    limite_upload_bytes: int = Field(50 * 1024 * 1024, validation_alias="MAX_UPLOAD_BYTES")
+    limite_analise_completa_bytes: int = Field(
+        25 * 1024 * 1024, validation_alias="MAX_FULL_ANALYSIS_BYTES"
+    )
     limite_texto_extraido: int = Field(120_000, validation_alias="MAX_EXTRACTED_TEXT_CHARS")
     validade_url_assinada_segundos: int = Field(300, validation_alias="SIGNED_URL_TTL_SECONDS")
 

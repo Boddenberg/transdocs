@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -7,7 +8,10 @@ from app.core.erros import ErroConfiguracao
 from app.dominio.arquivos import ArquivoValidado, validar_arquivo
 from app.dominio.documentos import TipoDocumentoEnviado
 from app.dominio.falhas import FalhaLeituraDocumento, FalhaOpenAI
-from app.infraestrutura.arquivos.leitor_pdf import extrair_texto_pdf
+from app.infraestrutura.arquivos.leitor_pdf import (
+    extrair_primeira_pagina_pdf,
+    extrair_texto_pdf,
+)
 from app.infraestrutura.openai.extrator import ExtratorOpenAI, obter_extrator_openai
 from app.infraestrutura.supabase.armazenamento import (
     ArmazenamentoDocumentos,
@@ -46,7 +50,11 @@ class ProcessadorDocumento:
         try:
             arquivo = self._carregar_arquivo(documento)
             extrator = obter_extrator_openai()
-            resposta, total_paginas = self._extrair(arquivo, extrator)
+            resposta, total_paginas = self._extrair(
+                arquivo,
+                extrator,
+                somente_primeira_pagina=bool(documento.get("somente_primeira_pagina")),
+            )
             self._repositorio.salvar_extracao(
                 {
                     "documento_id": str(documento_id),
@@ -96,13 +104,29 @@ class ProcessadorDocumento:
             limite_bytes=self._configuracoes.limite_upload_bytes,
         )
 
-    def _extrair(self, arquivo: ArquivoValidado, extrator: ExtratorOpenAI):
+    def _extrair(
+        self,
+        arquivo: ArquivoValidado,
+        extrator: ExtratorOpenAI,
+        *,
+        somente_primeira_pagina: bool,
+    ):
         if arquivo.tipo == TipoDocumentoEnviado.IMAGEM:
             return extrator.extrair_de_imagem(arquivo), 1
-        texto = extrair_texto_pdf(arquivo.conteudo, self._configuracoes.limite_texto_extraido)
+        texto = extrair_texto_pdf(
+            arquivo.conteudo,
+            self._configuracoes.limite_texto_extraido,
+            paginas_maximas=1 if somente_primeira_pagina else None,
+        )
         if texto.possui_texto_legivel:
             return extrator.extrair_de_texto(texto.texto), texto.paginas
-        return extrator.extrair_de_pdf_visual(arquivo), texto.paginas
+        arquivo_para_visao = arquivo
+        if somente_primeira_pagina:
+            arquivo_para_visao = replace(
+                arquivo,
+                conteudo=extrair_primeira_pagina_pdf(arquivo.conteudo),
+            )
+        return extrator.extrair_de_pdf_visual(arquivo_para_visao), texto.paginas
 
     def _registrar_falha(
         self,
