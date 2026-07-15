@@ -46,7 +46,7 @@ class ProcessadorDocumento:
         try:
             arquivo = self._carregar_arquivo(documento)
             extrator = obter_extrator_openai()
-            resposta = self._extrair(arquivo, extrator)
+            resposta, total_paginas = self._extrair(arquivo, extrator)
             self._repositorio.salvar_extracao(
                 {
                     "documento_id": str(documento_id),
@@ -59,7 +59,11 @@ class ProcessadorDocumento:
             self._repositorio.atualizar(
                 documento_id,
                 usuario_id,
-                {"status": "concluido", "codigo_erro": None},
+                {
+                    "status": "concluido",
+                    "codigo_erro": None,
+                    "total_paginas": total_paginas,
+                },
             )
             self._repositorio.concluir_processamento(
                 processamento["id"],
@@ -94,11 +98,11 @@ class ProcessadorDocumento:
 
     def _extrair(self, arquivo: ArquivoValidado, extrator: ExtratorOpenAI):
         if arquivo.tipo == TipoDocumentoEnviado.IMAGEM:
-            return extrator.extrair_de_imagem(arquivo)
+            return extrator.extrair_de_imagem(arquivo), 1
         texto = extrair_texto_pdf(arquivo.conteudo, self._configuracoes.limite_texto_extraido)
         if texto.possui_texto_legivel:
-            return extrator.extrair_de_texto(texto.texto)
-        return extrator.extrair_de_pdf_visual(arquivo)
+            return extrator.extrair_de_texto(texto.texto), texto.paginas
+        return extrator.extrair_de_pdf_visual(arquivo), texto.paginas
 
     def _registrar_falha(
         self,

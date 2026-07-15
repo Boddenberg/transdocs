@@ -78,6 +78,7 @@ class Documento(BaseModel):
     tipo_mime: str
     tipo_arquivo: TipoDocumentoEnviado
     tamanho_bytes: int
+    total_paginas: int | None
     caminho_storage: str
     hash_sha256: str
     status: StatusDocumento

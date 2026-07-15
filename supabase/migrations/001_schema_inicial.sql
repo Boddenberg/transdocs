@@ -12,6 +12,7 @@ create table if not exists public.documentos (
   )),
   tipo_arquivo text not null check (tipo_arquivo in ('pdf', 'imagem')),
   tamanho_bytes bigint not null check (tamanho_bytes > 0 and tamanho_bytes <= 26214400),
+  total_paginas integer check (total_paginas is null or total_paginas >= 1),
   caminho_storage text not null unique,
   hash_sha256 text not null check (hash_sha256 ~ '^[a-f0-9]{64}$'),
   status text not null default 'pendente' check (status in (
