@@ -115,7 +115,13 @@ class AutenticacaoSupabase:
     @staticmethod
     def _traduzir_erro(resposta: httpx.Response) -> None:
         codigo = resposta.status_code
+        texto = AutenticacaoSupabase._texto_erro(resposta)
         if codigo in {401, 403}:
+            if "invalid api key" in texto:
+                raise ErroConfiguracao(
+                    "Supabase Auth",
+                    ["SUPABASE_URL", "SUPABASE_ANON_KEY"],
+                )
             raise ErroNaoAutorizado("E-mail, senha ou sessão inválidos.")
         if codigo == 422:
             raise ErroRequisicao("Os dados de cadastro não foram aceitos.")
@@ -126,16 +132,21 @@ class AutenticacaoSupabase:
                 mensagem="Aguarde um pouco antes de tentar novamente.",
             )
         if codigo == 400:
-            try:
-                texto = str(resposta.json().get("msg", "")).lower()
-            except ValueError:
-                texto = ""
             if "already" in texto or "registered" in texto:
                 raise ErroConflito("Já existe uma conta com este e-mail.")
             raise ErroRequisicao("Não foi possível autenticar com os dados informados.")
         raise ErroServicoExterno(
             "Supabase Auth", "A autenticação está temporariamente indisponível."
         )
+
+    @staticmethod
+    def _texto_erro(resposta: httpx.Response) -> str:
+        try:
+            dados = resposta.json()
+        except ValueError:
+            return ""
+        campos = ("message", "msg", "error", "error_description", "hint")
+        return " ".join(str(dados.get(campo, "")) for campo in campos).lower()
 
     @staticmethod
     def _normalizar_resposta_de_sessao(dados: dict[str, Any]) -> dict[str, Any]:
