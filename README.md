@@ -124,7 +124,7 @@ conteúdo extraído não são enviados aos logs.
 | `POST /api/v1/auth/recuperar-senha` | Recuperação de senha |
 | `GET /api/v1/auth/sessao` | Validar sessão atual |
 | `POST /api/v1/documentos` | Upload PDF/imagem e início do processamento |
-| `GET /api/v1/documentos` | Histórico com busca, status e paginação |
+| `GET /api/v1/documentos` | Histórico com busca indexada no arquivo e em todos os dados extraídos, status e paginação |
 | `GET /api/v1/documentos/{id}` | Documento e extração |
 | `GET /api/v1/documentos/{id}/arquivo` | URL assinada temporária |
 | `PATCH /api/v1/documentos/{id}/resultado` | Corrigir/confirmar campo |
