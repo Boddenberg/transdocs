@@ -31,6 +31,11 @@ class StatusCampoPreenchimento(StrEnum):
     AMBIGUO = "ambiguo"
 
 
+class ModoPreenchimento(StrEnum):
+    LITERAL = "literal"
+    COMPOSTO = "composto"
+
+
 class LocalizadorCampoDocx(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -41,6 +46,16 @@ class LocalizadorCampoDocx(BaseModel):
     marcador: str
 
 
+class EvidenciaCampoPreenchimento(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fonte_id: str
+    fonte_nome: str = Field(max_length=255)
+    categoria_fonte: str = Field(max_length=80)
+    pagina: int | None = Field(default=None, ge=1)
+    trecho: str = Field(max_length=1200)
+
+
 class CampoPreenchimento(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -49,9 +64,13 @@ class CampoPreenchimento(BaseModel):
     marcador: str
     contexto: str
     status: StatusCampoPreenchimento
-    valor: str | None = Field(default=None, max_length=1000)
-    valor_original: str | None = Field(default=None, max_length=1000)
+    valor: str | None = Field(default=None, max_length=8000)
+    valor_original: str | None = Field(default=None, max_length=8000)
     editado_pelo_usuario: bool = False
+    modo_preenchimento: ModoPreenchimento = ModoPreenchimento.LITERAL
+    evidencias: list[EvidenciaCampoPreenchimento] = Field(
+        default_factory=list, max_length=20
+    )
     fonte_id: str | None = None
     fonte_nome: str | None = Field(default=None, max_length=255)
     categoria_fonte: str | None = Field(default=None, max_length=80)

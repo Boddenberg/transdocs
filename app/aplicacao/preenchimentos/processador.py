@@ -63,6 +63,7 @@ class ProcessadorPreenchimento:
                 texto_minuta=analise.texto,
                 campos=analise.campos,
                 fontes=fontes,
+                instrucoes_negociacao=preenchimento.get("instrucoes_negociacao", ""),
             )
             self._concluir(
                 preenchimento_id,

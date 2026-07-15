@@ -226,7 +226,7 @@ def _texto_visivel(bloco: str) -> str:
 
 def _validar_valor(valor: str) -> str:
     limpo = valor.strip()
-    if not limpo or len(limpo) > 1000:
+    if not limpo or len(limpo) > 8000:
         raise FalhaLeituraDocumento("Um valor selecionado é inválido para a minuta.")
     if any(ord(caractere) < 32 and caractere not in {"\t", "\n"} for caractere in limpo):
         raise FalhaLeituraDocumento("Um valor contém caracteres inválidos.")

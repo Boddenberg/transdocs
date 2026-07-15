@@ -38,6 +38,7 @@ async def criar_preenchimento(
     tarefas: BackgroundTasks,
     tipo_documento: Annotated[str, Form(max_length=80)],
     arquivo_base: Annotated[UploadFile, File(description="Minuta DOCX")],
+    instrucoes_negociacao: Annotated[str, Form(max_length=8000)] = "",
     categorias_fontes: Annotated[list[str] | None, Form()] = None,
     arquivos_fontes: Annotated[list[UploadFile] | None, File()] = None,
 ) -> dict[str, Any]:
@@ -61,6 +62,7 @@ async def criar_preenchimento(
         tipo_documento=tipo_documento,
         arquivo_base=base,
         fontes=fontes,
+        instrucoes_negociacao=instrucoes_negociacao,
     )
     preenchimento_id = UUID(preenchimento["id"])
     tarefas.add_task(

@@ -52,9 +52,13 @@ class ServicoPreenchimentos:
         tipo_documento: str,
         arquivo_base: ArquivoDocxValidado,
         fontes: list[FonteUploadPreenchimento],
+        instrucoes_negociacao: str = "",
     ) -> dict[str, Any]:
         obter_tipo_preenchimento(tipo_documento)
         self._validar_fontes(tipo_documento, fontes)
+        instrucoes_negociacao = _limpar_instrucoes_negociacao(
+            instrucoes_negociacao
+        )
         preenchimento_id = uuid4()
         caminho_base = self._armazenamento.montar_caminho(
             usuario_id=usuario_id,
@@ -80,6 +84,7 @@ class ServicoPreenchimentos:
                     "tamanho_minuta_bytes": arquivo_base.tamanho_bytes,
                     "status": "pendente",
                     "resultado": {},
+                    "instrucoes_negociacao": instrucoes_negociacao,
                 }
             )
             criado = True
@@ -388,8 +393,20 @@ def _limpar_valor_manual(valor: str) -> str:
     ):
         raise ErroRequisicao("Um valor editado contém caracteres inválidos.")
     limpo = " ".join(valor.split())
-    if not limpo or len(limpo) > 1000:
+    if not limpo or len(limpo) > 8000:
         raise ErroRequisicao("Um valor editado está vazio ou excede o limite permitido.")
+    return limpo
+
+
+def _limpar_instrucoes_negociacao(valor: str) -> str:
+    if any(
+        ord(caractere) < 32 and caractere not in {"\t", "\n", "\r"}
+        for caractere in valor
+    ):
+        raise ErroRequisicao("As informações da negociação contêm caracteres inválidos.")
+    limpo = valor.strip()
+    if len(limpo) > 8000:
+        raise ErroRequisicao("As informações da negociação excedem o limite permitido.")
     return limpo
 
 

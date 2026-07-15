@@ -9,7 +9,8 @@ _TIPOS: dict[str, dict[str, Any]] = {
         "id": TIPO_ESCRITURA_VENDA_COMPRA,
         "nome": "Escritura pública de venda e compra",
         "descricao": (
-            "Preenche apenas lacunas explícitas da minuta e preserva todo o texto já existente."
+            "Monta campos e blocos marcados da escritura com dados declarados "
+            "e documentos rastreáveis."
         ),
         "arquivo_base": {
             "rotulo": "Minuta da escritura",
@@ -18,6 +19,16 @@ _TIPOS: dict[str, dict[str, Any]] = {
             "aceita": [".docx"],
         },
         "fontes": [
+            {
+                "id": "documentos_caso",
+                "nome": "Todos os documentos do caso",
+                "descricao": (
+                    "Envie juntos os documentos das partes, do imóvel, certidões e comprovantes. "
+                    "A narrativa da negociação ajuda a atribuir os papéis sem depender da ordem."
+                ),
+                "multiplo": True,
+                "obrigatorio": False,
+            },
             {
                 "id": "documentos_partes",
                 "nome": "Documentos pessoais das partes",
