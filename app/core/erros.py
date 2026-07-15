@@ -57,6 +57,16 @@ class ErroConflito(ErroAplicacao):
         super().__init__(status=409, codigo="conflito", mensagem=mensagem)
 
 
+class ErroNaoAutorizado(ErroAplicacao):
+    def __init__(self, mensagem: str = "Sessão inválida ou expirada.") -> None:
+        super().__init__(status=401, codigo="nao_autorizado", mensagem=mensagem)
+
+
+class ErroProibido(ErroAplicacao):
+    def __init__(self, mensagem: str = "Você não tem permissão para esta operação.") -> None:
+        super().__init__(status=403, codigo="acesso_negado", mensagem=mensagem)
+
+
 class ErroServicoExterno(ErroAplicacao):
     def __init__(self, servico: str, mensagem: str) -> None:
         super().__init__(
@@ -114,4 +124,3 @@ def registrar_tratadores_de_erro(app: FastAPI) -> None:
                 }
             },
         )
-
