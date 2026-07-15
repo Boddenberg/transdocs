@@ -87,11 +87,14 @@ Não copie valores da Padoka. Crie `.env` próprio e nunca o versione.
 
 1. Crie um projeto Supabase exclusivo.
 2. Abra o SQL Editor e execute
-   [`001_schema_inicial.sql`](supabase/migrations/001_schema_inicial.sql).
+   [`20260714000100_schema_inicial.sql`](supabase/migrations/20260714000100_schema_inicial.sql).
 3. Em Authentication, configure URL do front e redirects de recuperação.
 4. Confirme que o bucket `documentos` está privado.
 5. Preencha as três variáveis do Supabase na API; o navegador recebe somente URL e
    anon key.
+
+O nome `documentos` é usado também nas políticas SQL. Se alterar
+`SUPABASE_DOCUMENTS_BUCKET`, atualize e reaplique as políticas da migration.
 
 A migration cria:
 
@@ -162,4 +165,3 @@ etapas externas ainda necessárias.
 - Não há organizações/cartórios compartilhados; `usuario_id` centraliza o escopo e
   permite introduzir esse contexto futuramente sem misturar contas.
 - Resultados de IA exigem conferência; não existe validação jurídica automática.
-

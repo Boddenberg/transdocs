@@ -4,9 +4,9 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+supabase/.temp/
 .coverage
 htmlcov/
 .idea/
 .vscode/
 .DS_Store
-
