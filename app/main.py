@@ -58,6 +58,10 @@ def criar_aplicacao() -> FastAPI:
             "ambiente": configuracoes.ambiente,
             "supabase_configurado": configuracoes.supabase_configurado,
             "openai_configurada": configuracoes.openai_configurada,
+            "limite_upload_mb": configuracoes.limite_upload_bytes // (1024 * 1024),
+            "limite_analise_completa_mb": (
+                configuracoes.limite_analise_completa_bytes // (1024 * 1024)
+            ),
         }
 
     return app
