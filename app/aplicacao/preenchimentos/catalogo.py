@@ -23,6 +23,26 @@ _TIPOS: dict[str, dict[str, Any]] = {
         },
         "fontes": [
             {
+                "id": "documentos_vendedores",
+                "nome": "Documentos dos vendedores",
+                "descricao": (
+                    "Identidade, CPF, certidão de estado civil, pacto ou representação "
+                    "das pessoas que vendem o imóvel."
+                ),
+                "multiplo": True,
+                "obrigatorio": False,
+            },
+            {
+                "id": "documentos_compradores",
+                "nome": "Documentos dos compradores",
+                "descricao": (
+                    "Identidade, CPF, certidão de estado civil, pacto ou representação "
+                    "das pessoas que compram o imóvel."
+                ),
+                "multiplo": True,
+                "obrigatorio": False,
+            },
+            {
                 "id": "documentos_caso",
                 "nome": "Todos os documentos do caso",
                 "descricao": (
@@ -66,6 +86,15 @@ _TIPOS: dict[str, dict[str, Any]] = {
                 "id": "cadastro_municipal",
                 "nome": "IPTU e cadastro municipal",
                 "descricao": "Cadastro imobiliário, valor venal e documentos municipais.",
+                "multiplo": True,
+                "obrigatorio": False,
+            },
+            {
+                "id": "valor_venal",
+                "nome": "Certidão de valor venal",
+                "descricao": (
+                    "Certidão municipal com terreno, construção e valor venal total."
+                ),
                 "multiplo": True,
                 "obrigatorio": False,
             },

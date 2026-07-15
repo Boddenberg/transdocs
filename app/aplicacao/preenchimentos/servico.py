@@ -12,6 +12,7 @@ from app.aplicacao.preenchimentos.catalogo import (
 from app.core.configuracao import Configuracoes, obter_configuracoes
 from app.core.erros import ErroConflito, ErroNaoEncontrado, ErroRequisicao
 from app.dominio.arquivos import ArquivoValidado
+from app.dominio.negociacao import DadosNegociacao
 from app.dominio.preenchimentos import (
     ArquivoDocxValidado,
     ResultadoPreenchimento,
@@ -53,6 +54,7 @@ class ServicoPreenchimentos:
         arquivo_base: ArquivoDocxValidado,
         fontes: list[FonteUploadPreenchimento],
         instrucoes_negociacao: str = "",
+        dados_negociacao: DadosNegociacao | None = None,
         modo_criacao: str = "completar_minuta",
         modelo_referencia: str | None = None,
         modelo_nome: str | None = None,
@@ -66,6 +68,13 @@ class ServicoPreenchimentos:
         instrucoes_negociacao = _limpar_instrucoes_negociacao(
             instrucoes_negociacao
         )
+        if dados_negociacao is not None:
+            declaracao_estruturada = dados_negociacao.como_declaracao()
+            instrucoes_negociacao = "\n\n".join(
+                trecho
+                for trecho in (instrucoes_negociacao, declaracao_estruturada)
+                if trecho
+            )
         preenchimento_id = uuid4()
         caminho_base = self._armazenamento.montar_caminho(
             usuario_id=usuario_id,
@@ -92,6 +101,11 @@ class ServicoPreenchimentos:
                     "status": "pendente",
                     "resultado": {},
                     "instrucoes_negociacao": instrucoes_negociacao,
+                    "dados_negociacao": (
+                        dados_negociacao.model_dump(mode="json")
+                        if dados_negociacao is not None
+                        else None
+                    ),
                     "modo_criacao": modo_criacao,
                     "modelo_referencia": modelo_referencia,
                     "modelo_nome": modelo_nome,
@@ -177,7 +191,12 @@ class ServicoPreenchimentos:
         campos_incluir: list[str],
         valores_campos: dict[str, str] | None,
         permitir_incompleto: bool,
+        revisao_confirmada: bool = False,
     ) -> dict[str, Any]:
+        if not revisao_confirmada:
+            raise ErroRequisicao(
+                "Confirme que você revisou os dados antes de gerar a minuta."
+            )
         preenchimento = self._obter(preenchimento_id, usuario_id)
         if preenchimento["status"] in {"pendente", "processando"}:
             raise ErroConflito("A análise ainda está em andamento.")

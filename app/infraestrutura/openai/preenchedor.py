@@ -15,10 +15,17 @@ from app.dominio.arquivos import ArquivoValidado
 from app.dominio.documentos import TipoDocumentoEnviado
 from app.dominio.falhas import FalhaOpenAI
 from app.dominio.preenchimentos import (
+    AnaliseImovel,
+    AtoRegistral,
     CampoPreenchimento,
+    DadoAnaliseImovel,
+    EvidenciaAnaliseImovel,
     EvidenciaCampoPreenchimento,
     ModoPreenchimento,
+    NaturezaAtoRegistral,
+    OnusRestricao,
     ResultadoPreenchimento,
+    SituacaoAtoRegistral,
     StatusCampoPreenchimento,
 )
 from app.infraestrutura.arquivos.leitor_pdf import extrair_texto_pdf
@@ -79,10 +86,71 @@ class CampoRespostaIA(BaseModel):
         return valor
 
 
+class DadoAnaliseRespostaIA(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: str = Field(max_length=100)
+    valor: str = Field(max_length=4000)
+    confianca: float = Field(ge=0, le=1)
+    precisa_revisao: bool
+    evidencia: EvidenciaRespostaIA
+
+
+class AtoRegistralRespostaIA(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ordem: int = Field(ge=1)
+    identificador: str = Field(max_length=80)
+    data: str | None = Field(default=None, max_length=80)
+    natureza: NaturezaAtoRegistral
+    resumo: str = Field(max_length=2000)
+    titulares: list[str] = Field(max_length=20)
+    valor: str | None = Field(default=None, max_length=120)
+    referencia_cancelamento: str | None = Field(default=None, max_length=80)
+    situacao: SituacaoAtoRegistral
+    evidencia: EvidenciaRespostaIA
+
+
+class OnusRestricaoRespostaIA(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: str = Field(max_length=120)
+    ato: str = Field(max_length=80)
+    resumo: str = Field(max_length=1600)
+    situacao: SituacaoAtoRegistral
+    cancelado_por: str | None = Field(default=None, max_length=80)
+    evidencia: EvidenciaRespostaIA
+
+
+class AnaliseImovelRespostaIA(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    identificacao: list[DadoAnaliseRespostaIA] = Field(default_factory=list, max_length=30)
+    descricao: list[DadoAnaliseRespostaIA] = Field(default_factory=list, max_length=40)
+    proprietarios_atuais: list[DadoAnaliseRespostaIA] = Field(
+        default_factory=list, max_length=20
+    )
+    forma_aquisicao: list[DadoAnaliseRespostaIA] = Field(
+        default_factory=list, max_length=20
+    )
+    valor_venal: list[DadoAnaliseRespostaIA] = Field(default_factory=list, max_length=30)
+    atos_registrais: list[AtoRegistralRespostaIA] = Field(
+        default_factory=list, max_length=100
+    )
+    onus_restricoes: list[OnusRestricaoRespostaIA] = Field(
+        default_factory=list, max_length=100
+    )
+    divergencias: list[str] = Field(default_factory=list, max_length=50)
+    alertas: list[str] = Field(default_factory=list, max_length=50)
+
+
 class ResultadoRespostaIA(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     campos: list[CampoRespostaIA]
+    analise_imovel: AnaliseImovelRespostaIA = Field(
+        default_factory=AnaliseImovelRespostaIA
+    )
     alertas: list[str]
 
 
@@ -185,7 +253,7 @@ class ExtratorPreenchimentoOpenAI:
                 visual=False,
             )
         }
-        instrucoes_negociacao = instrucoes_negociacao.strip()[:8000]
+        instrucoes_negociacao = instrucoes_negociacao.strip()[:20000]
         if instrucoes_negociacao:
             conteudo.append(
                 {
@@ -342,10 +410,170 @@ def _validar_evidencias(
                 }
             )
         )
+    analise_imovel = _validar_analise_imovel(
+        bruto.analise_imovel,
+        evidencias=evidencias,
+        alertas=alertas,
+    )
     return ResultadoPreenchimento.criar(
         tipo_documento=tipo_documento,
         campos=validados,
+        analise_imovel=analise_imovel,
         alertas=alertas,
+    )
+
+
+def _validar_analise_imovel(
+    bruto: AnaliseImovelRespostaIA,
+    *,
+    evidencias: dict[str, _Evidencia],
+    alertas: list[str],
+) -> AnaliseImovel:
+    categorias_imovel = {"matricula_imovel", "cadastro_municipal", "valor_venal"}
+
+    def validar_dados(
+        itens: list[DadoAnaliseRespostaIA], rotulo: str
+    ) -> list[DadoAnaliseImovel]:
+        validados: list[DadoAnaliseImovel] = []
+        for item in itens:
+            evidencia = _validar_referencia_analise(
+                item.evidencia,
+                evidencias=evidencias,
+                categorias_permitidas=categorias_imovel,
+            )
+            if evidencia is None:
+                alertas.append(
+                    f"{rotulo}: uma informação foi descartada por não possuir "
+                    "evidência verificável."
+                )
+                continue
+            validados.append(
+                DadoAnaliseImovel(
+                    tipo=item.tipo,
+                    valor=item.valor,
+                    confianca=item.confianca,
+                    precisa_revisao=item.precisa_revisao or item.confianca < 0.8,
+                    evidencia=evidencia,
+                )
+            )
+        return validados
+
+    atos: list[AtoRegistral] = []
+    identificadores: set[str] = set()
+    for item in sorted(bruto.atos_registrais, key=lambda atual: atual.ordem):
+        evidencia = _validar_referencia_analise(
+            item.evidencia,
+            evidencias=evidencias,
+            categorias_permitidas={"matricula_imovel"},
+        )
+        if evidencia is None or item.identificador.casefold() in identificadores:
+            alertas.append(
+                "Cadeia registral: um ato duplicado ou sem evidência foi descartado."
+            )
+            continue
+        identificadores.add(item.identificador.casefold())
+        atos.append(
+            AtoRegistral(
+                **item.model_dump(exclude={"evidencia"}),
+                evidencia=evidencia,
+            )
+        )
+
+    atos_canceladores = {
+        ato.identificador.casefold()
+        for ato in atos
+        if ato.natureza in {NaturezaAtoRegistral.CANCELAMENTO, NaturezaAtoRegistral.AVERBACAO}
+    }
+    onus: list[OnusRestricao] = []
+    for item in bruto.onus_restricoes:
+        evidencia = _validar_referencia_analise(
+            item.evidencia,
+            evidencias=evidencias,
+            categorias_permitidas={"matricula_imovel"},
+        )
+        if evidencia is None:
+            alertas.append("Ônus e restrições: um item sem evidência foi descartado.")
+            continue
+        situacao = item.situacao
+        if situacao == SituacaoAtoRegistral.CANCELADO and (
+            not item.cancelado_por
+            or item.cancelado_por.casefold() not in atos_canceladores
+        ):
+            situacao = SituacaoAtoRegistral.INCERTO
+            alertas.append(
+                f"Ônus {item.ato}: o cancelamento indicado não foi comprovado por um ato posterior."
+            )
+        onus.append(
+            OnusRestricao(
+                **item.model_dump(exclude={"evidencia", "situacao"}),
+                situacao=situacao,
+                evidencia=evidencia,
+            )
+        )
+
+    proprietarios = validar_dados(bruto.proprietarios_atuais, "Proprietário atual")
+    atos_titularidade = [
+        ato
+        for ato in atos
+        if ato.natureza in {NaturezaAtoRegistral.ABERTURA, NaturezaAtoRegistral.AQUISICAO}
+    ]
+    if proprietarios and not atos_titularidade:
+        alertas.append(
+            "Proprietário atual: não foi encontrado ato registral suficiente "
+            "para sustentar a conclusão."
+        )
+        proprietarios = [
+            item.model_copy(update={"precisa_revisao": True}) for item in proprietarios
+        ]
+    elif proprietarios:
+        ultimo_titulo = max(atos_titularidade, key=lambda ato: ato.ordem)
+        titulares_ultimo_ato = {
+            _normalizar_busca(titular) for titular in ultimo_titulo.titulares
+        }
+        if any(
+            _normalizar_busca(item.valor) not in titulares_ultimo_ato
+            for item in proprietarios
+        ):
+            alertas.append(
+                "Proprietário atual: a conclusão não coincide com os titulares do último "
+                "ato aquisitivo identificado e exige revisão humana."
+            )
+            proprietarios = [
+                item.model_copy(update={"precisa_revisao": True})
+                for item in proprietarios
+            ]
+
+    return AnaliseImovel(
+        identificacao=validar_dados(bruto.identificacao, "Identificação do imóvel"),
+        descricao=validar_dados(bruto.descricao, "Descrição do imóvel"),
+        proprietarios_atuais=proprietarios,
+        forma_aquisicao=validar_dados(bruto.forma_aquisicao, "Forma de aquisição"),
+        valor_venal=validar_dados(bruto.valor_venal, "Valor venal"),
+        atos_registrais=atos,
+        onus_restricoes=onus,
+        divergencias=bruto.divergencias,
+        alertas=bruto.alertas,
+    )
+
+
+def _validar_referencia_analise(
+    referencia: EvidenciaRespostaIA,
+    *,
+    evidencias: dict[str, _Evidencia],
+    categorias_permitidas: set[str],
+) -> EvidenciaAnaliseImovel | None:
+    fonte = evidencias.get(referencia.fonte_id)
+    trecho = _normalizar_busca(referencia.trecho)
+    if fonte is None or fonte.categoria not in categorias_permitidas or not trecho:
+        return None
+    if fonte.texto is not None and trecho not in _normalizar_busca(fonte.texto):
+        return None
+    return EvidenciaAnaliseImovel(
+        fonte_id=fonte.id,
+        fonte_nome=fonte.nome,
+        categoria_fonte=fonte.categoria,
+        pagina=referencia.pagina,
+        trecho=referencia.trecho,
     )
 
 

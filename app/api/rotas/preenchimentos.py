@@ -19,6 +19,7 @@ from app.dominio.arquivos import validar_arquivo
 from app.dominio.audio import validar_audio
 from app.dominio.documentos import TipoDocumentoEnviado
 from app.dominio.falhas import FalhaOpenAI
+from app.dominio.negociacao import DadosNegociacao
 from app.dominio.preenchimentos import validar_arquivo_docx
 from app.infraestrutura.openai.transcritor import obter_transcritor_audio_openai
 
@@ -29,6 +30,7 @@ class GeracaoPreenchimento(BaseModel):
     campos_incluir: list[str] = Field(default_factory=list, max_length=200)
     valores_campos: dict[str, str] = Field(default_factory=dict, max_length=200)
     permitir_incompleto: bool = False
+    revisao_confirmada: bool = False
 
 
 class TranscricaoAudio(BaseModel):
@@ -124,6 +126,7 @@ async def criar_preenchimento(
     arquivo_base: Annotated[UploadFile | None, File(description="Minuta DOCX")] = None,
     modelo_id: Annotated[str | None, Form(max_length=120)] = None,
     instrucoes_negociacao: Annotated[str, Form(max_length=8000)] = "",
+    dados_negociacao: Annotated[str, Form(max_length=20000)] = "",
     categorias_fontes: Annotated[list[str] | None, Form()] = None,
     arquivos_fontes: Annotated[list[UploadFile] | None, File()] = None,
 ) -> dict[str, Any]:
@@ -168,6 +171,7 @@ async def criar_preenchimento(
         arquivo_base=base,
         fontes=fontes,
         instrucoes_negociacao=instrucoes_negociacao,
+        dados_negociacao=_validar_dados_negociacao(dados_negociacao),
         modo_criacao=modo_criacao,
         modelo_referencia=modelo_referencia,
         modelo_nome=modelo_nome,
@@ -236,6 +240,7 @@ def gerar_documento(
         campos_incluir=dados.campos_incluir,
         valores_campos=dados.valores_campos,
         permitir_incompleto=dados.permitir_incompleto,
+        revisao_confirmada=dados.revisao_confirmada,
     )
 
 
@@ -291,6 +296,17 @@ async def _validar_fontes(
             )
         )
     return fontes
+
+
+def _validar_dados_negociacao(conteudo: str) -> DadosNegociacao | None:
+    if not conteudo.strip():
+        return None
+    try:
+        return DadosNegociacao.model_validate_json(conteudo)
+    except ValueError as erro:
+        raise ErroRequisicao(
+            "Confira o preço e as formas de pagamento informadas."
+        ) from erro
 
 
 async def _ler_com_limite(arquivo: UploadFile, limite: int) -> bytes:

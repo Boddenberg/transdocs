@@ -36,6 +36,22 @@ class ModoPreenchimento(StrEnum):
     COMPOSTO = "composto"
 
 
+class SituacaoAtoRegistral(StrEnum):
+    ATIVO = "ativo"
+    CANCELADO = "cancelado"
+    HISTORICO = "historico"
+    INCERTO = "incerto"
+
+
+class NaturezaAtoRegistral(StrEnum):
+    ABERTURA = "abertura"
+    AQUISICAO = "aquisicao"
+    ONUS = "onus"
+    CANCELAMENTO = "cancelamento"
+    AVERBACAO = "averbacao"
+    OUTRO = "outro"
+
+
 class LocalizadorCampoDocx(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -54,6 +70,66 @@ class EvidenciaCampoPreenchimento(BaseModel):
     categoria_fonte: str = Field(max_length=80)
     pagina: int | None = Field(default=None, ge=1)
     trecho: str = Field(max_length=1200)
+
+
+class EvidenciaAnaliseImovel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fonte_id: str
+    fonte_nome: str = Field(max_length=255)
+    categoria_fonte: str = Field(max_length=80)
+    pagina: int | None = Field(default=None, ge=1)
+    trecho: str = Field(max_length=1200)
+
+
+class DadoAnaliseImovel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: str = Field(max_length=100)
+    valor: str = Field(max_length=4000)
+    confianca: float = Field(ge=0, le=1)
+    precisa_revisao: bool = False
+    evidencia: EvidenciaAnaliseImovel
+
+
+class AtoRegistral(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ordem: int = Field(ge=1)
+    identificador: str = Field(max_length=80)
+    data: str | None = Field(default=None, max_length=80)
+    natureza: NaturezaAtoRegistral
+    resumo: str = Field(max_length=2000)
+    titulares: list[str] = Field(default_factory=list, max_length=20)
+    valor: str | None = Field(default=None, max_length=120)
+    referencia_cancelamento: str | None = Field(default=None, max_length=80)
+    situacao: SituacaoAtoRegistral
+    evidencia: EvidenciaAnaliseImovel
+
+
+class OnusRestricao(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: str = Field(max_length=120)
+    ato: str = Field(max_length=80)
+    resumo: str = Field(max_length=1600)
+    situacao: SituacaoAtoRegistral
+    cancelado_por: str | None = Field(default=None, max_length=80)
+    evidencia: EvidenciaAnaliseImovel
+
+
+class AnaliseImovel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    identificacao: list[DadoAnaliseImovel] = Field(default_factory=list, max_length=30)
+    descricao: list[DadoAnaliseImovel] = Field(default_factory=list, max_length=40)
+    proprietarios_atuais: list[DadoAnaliseImovel] = Field(default_factory=list, max_length=20)
+    forma_aquisicao: list[DadoAnaliseImovel] = Field(default_factory=list, max_length=20)
+    valor_venal: list[DadoAnaliseImovel] = Field(default_factory=list, max_length=30)
+    atos_registrais: list[AtoRegistral] = Field(default_factory=list, max_length=100)
+    onus_restricoes: list[OnusRestricao] = Field(default_factory=list, max_length=100)
+    divergencias: list[str] = Field(default_factory=list, max_length=50)
+    alertas: list[str] = Field(default_factory=list, max_length=50)
 
 
 class CampoPreenchimento(BaseModel):
@@ -101,6 +177,7 @@ class ResultadoPreenchimento(BaseModel):
 
     tipo_documento: str
     campos: list[CampoPreenchimento] = Field(default_factory=list)
+    analise_imovel: AnaliseImovel = Field(default_factory=AnaliseImovel)
     alertas: list[str] = Field(default_factory=list)
     total_campos: int = Field(ge=0)
     total_encontrados: int = Field(ge=0)
@@ -112,12 +189,14 @@ class ResultadoPreenchimento(BaseModel):
         *,
         tipo_documento: str,
         campos: list[CampoPreenchimento],
+        analise_imovel: AnaliseImovel | None = None,
         alertas: list[str] | None = None,
     ) -> "ResultadoPreenchimento":
         encontrados = sum(campo.status == StatusCampoPreenchimento.ENCONTRADO for campo in campos)
         return cls(
             tipo_documento=tipo_documento,
             campos=campos,
+            analise_imovel=analise_imovel or AnaliseImovel(),
             alertas=alertas or [],
             total_campos=len(campos),
             total_encontrados=encontrados,

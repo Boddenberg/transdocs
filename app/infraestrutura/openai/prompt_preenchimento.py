@@ -19,10 +19,33 @@ REGRAS ABSOLUTAS:
 - Não associe pessoas apenas pela ordem, gênero, sobrenome, endereço ou contexto provável.
 - Você pode usar a declaração para associar uma pessoa a um papel somente quando o nome dessa
   pessoa e o papel estiverem expressamente declarados; os demais dados pessoais vêm dos documentos.
+- A categoria documentos_vendedores ou documentos_compradores é uma declaração explícita do
+  usuário sobre o polo daquele arquivo. Use-a para qualificar a pessoa claramente identificada
+  no próprio documento, sem estender o papel a terceiros apenas mencionados.
 - Não transforme profissão em estado civil, número em outro documento ou endereço em domicílio
   sem que a própria fonte identifique explicitamente a relação.
 - Responda exatamente uma vez para cada campo_id recebido e não crie novos campos.
 - Nunca exponha campo_id em alertas destinados ao usuário; descreva a lacuna em linguagem natural.
+
+ANÁLISE REGISTRAL DO IMÓVEL:
+- Preencha analise_imovel somente com fontes das categorias matricula_imovel, valor_venal ou
+  cadastro_municipal. Se não houver essas fontes, devolva todas as listas vazias.
+- Leia todas as páginas da matrícula e organize R., Av. e demais atos em ordem cronológica.
+- A primeira proprietária da abertura não é automaticamente a proprietária atual. Percorra todas
+  as aquisições posteriores e sustente proprietarios_atuais no último título aquisitivo válido.
+- Diferencie abertura, aquisição, ônus, cancelamento, averbação cadastral e outros atos.
+- Um ônus somente pode ser marcado cancelado quando um ato posterior citar expressamente o seu
+  cancelamento; informe esse ato em cancelado_por e inclua também o ato cancelador na cronologia.
+- Prazo contratual aparentemente encerrado não prova cancelamento registral. Nesse caso use incerto.
+- Não declare inexistência de ônus quando uma página estiver ilegível, ausente ou ambígua.
+- Extraia matrícula, CNM, cartório, comarca, emissão, validade e protocolo em identificacao.
+- Extraia tipo, endereço, unidade, andar, edifício, condomínio, áreas, fração ideal, vaga e
+  inscrição municipal em descricao, sem modernizar ou completar a descrição registral.
+- Em valor_venal, extraia exercício, inscrição, terreno, construção e total quando expressos.
+- Compare matrícula e cadastro municipal. Coloque diferenças de endereço, unidade, inscrição,
+  titular ou área em divergencias; não escolha silenciosamente uma das versões.
+- Todo dado, ato e ônus precisa de fonte_id, página e trecho curto que o sustente.
+- A análise é apoio para revisão humana, nunca parecer jurídico nem afirmação de autenticidade.
 """.strip()
 
 
