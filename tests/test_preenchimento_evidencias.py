@@ -3,7 +3,10 @@ from types import SimpleNamespace
 
 from app.core.configuracao import Configuracoes
 from app.infraestrutura.arquivos.docx import analisar_docx
-from app.infraestrutura.openai.preenchedor import ExtratorPreenchimentoOpenAI
+from app.infraestrutura.openai.preenchedor import (
+    ExtratorPreenchimentoOpenAI,
+    _humanizar_alertas,
+)
 from tests.test_preenchimento_docx import _docx_minimo
 
 
@@ -56,3 +59,15 @@ def test_rebaixa_sugestao_que_nao_existe_na_evidencia_textual() -> None:
     assert validado.valor is None
     assert validado.autoaplicavel is False
     assert resposta.resultado.total_pendentes == 1
+
+
+def test_remove_identificador_interno_dos_alertas() -> None:
+    campo = analisar_docx(_docx_minimo()).campos[0]
+
+    alertas = _humanizar_alertas(
+        [f"{campo.id}: confira a diferença entre a minuta e a fonte."],
+        [campo],
+    )
+
+    assert alertas == ["Lacuna 1: confira a diferença entre a minuta e a fonte."]
+    assert "campo_" not in alertas[0]

@@ -1,5 +1,6 @@
 import base64
 import json
+import re
 import unicodedata
 from dataclasses import dataclass
 from functools import lru_cache
@@ -217,7 +218,7 @@ def _validar_evidencias(
         raise FalhaOpenAI("A resposta não cobriu exatamente as lacunas da minuta.")
     respostas = {campo.campo_id: campo for campo in bruto.campos}
     validados: list[CampoPreenchimento] = []
-    alertas = list(bruto.alertas)
+    alertas = _humanizar_alertas(bruto.alertas, campos)
     for campo in campos:
         resposta = respostas[campo.id]
         if resposta.status != StatusCampoPreenchimento.ENCONTRADO:
@@ -283,6 +284,19 @@ def _motivo_evidencia_invalida(
         if trecho not in texto and valor not in texto:
             return "A evidência textual não contém o trecho ou valor sugerido."
     return None
+
+
+def _humanizar_alertas(
+    alertas: list[str], campos: list[CampoPreenchimento]
+) -> list[str]:
+    humanizados: list[str] = []
+    for alerta in alertas:
+        mensagem = alerta
+        for indice, campo in enumerate(campos, start=1):
+            mensagem = mensagem.replace(campo.id, f"Lacuna {indice}")
+        mensagem = re.sub(r"\bcampo_[0-9a-f]{16}\b", "Uma lacuna", mensagem)
+        humanizados.append(mensagem)
+    return humanizados
 
 
 def _normalizar_busca(texto: str) -> str:

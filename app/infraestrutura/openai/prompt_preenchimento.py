@@ -13,6 +13,7 @@ REGRAS ABSOLUTAS:
 - Não transforme profissão em estado civil, número em outro documento ou endereço em domicílio
   sem que a própria fonte identifique explicitamente a relação.
 - Responda exatamente uma vez para cada campo_id recebido e não crie novos campos.
+- Nunca exponha campo_id em alertas destinados ao usuário; descreva a lacuna em linguagem natural.
 """.strip()
 
 
