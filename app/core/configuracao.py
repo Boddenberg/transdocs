@@ -21,6 +21,10 @@ class Configuracoes(BaseSettings):
     supabase_bucket_documentos: str = Field(
         "documentos", validation_alias="SUPABASE_DOCUMENTS_BUCKET"
     )
+    supabase_bucket_sugestoes: str = Field(
+        "sugestoes", validation_alias="SUPABASE_SUGGESTIONS_BUCKET"
+    )
+    sugestoes_admin_key: str = Field("", validation_alias="SUGGESTIONS_ADMIN_KEY")
 
     openai_api_key: str = Field("", validation_alias="OPENAI_API_KEY")
     openai_modelo: str = Field("gpt-5.4-mini", validation_alias="OPENAI_MODEL")
@@ -39,6 +43,9 @@ class Configuracoes(BaseSettings):
     )
     limite_texto_extraido: int = Field(120_000, validation_alias="MAX_EXTRACTED_TEXT_CHARS")
     validade_url_assinada_segundos: int = Field(300, validation_alias="SIGNED_URL_TTL_SECONDS")
+    limite_anexo_sugestao_bytes: int = Field(
+        10 * 1024 * 1024, validation_alias="MAX_SUGGESTION_ATTACHMENT_BYTES"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

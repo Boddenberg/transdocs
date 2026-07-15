@@ -26,7 +26,7 @@ def criar_aplicacao() -> FastAPI:
         allow_origins=configuracoes.origens_cors or ["http://localhost:3000"],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        allow_headers=["Authorization", "Content-Type", "X-Admin-Key", "X-Request-ID"],
         expose_headers=["X-Request-ID"],
     )
     registrar_tratadores_de_erro(app)

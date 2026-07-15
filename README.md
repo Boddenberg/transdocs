@@ -74,6 +74,8 @@ documentação interativa em `/docs`.
 | `SUPABASE_ANON_KEY` | Chave pública usada para Auth |
 | `SUPABASE_SERVICE_ROLE_KEY` | Segredo somente do back-end |
 | `SUPABASE_DOCUMENTS_BUCKET` | Bucket privado, padrão `documentos` |
+| `SUPABASE_SUGGESTIONS_BUCKET` | Bucket privado dos prints de feedback, padrão `sugestoes` |
+| `SUGGESTIONS_ADMIN_KEY` | Chave longa usada somente na consulta administrativa de sugestões |
 | `OPENAI_API_KEY` | Segredo somente do back-end |
 | `OPENAI_MODEL` | Modelo com visão e Structured Outputs |
 | `OPENAI_TIMEOUT_SECONDS` | Timeout da chamada, padrão 90 s |
@@ -84,6 +86,7 @@ documentação interativa em `/docs`.
 | `MAX_FULL_ANALYSIS_BYTES` | Acima deste limite, o PDF exige análise só da primeira página |
 | `MAX_EXTRACTED_TEXT_CHARS` | Teto de texto enviado ao modelo |
 | `SIGNED_URL_TTL_SECONDS` | Validade da URL privada, padrão 300 s |
+| `MAX_SUGGESTION_ATTACHMENT_BYTES` | Limite por print/foto, padrão 10 MB |
 
 Não copie valores da Padoka. Crie `.env` próprio e nunca o versione.
 
@@ -138,8 +141,12 @@ e a cotação `USD_BRL_RATE`. O valor é informativo e pode diferir da cobrança
 | `PATCH /api/v1/documentos/{id}/revisao` | Marcar revisão completa |
 | `POST /api/v1/documentos/{id}/reprocessar` | Nova tentativa explícita |
 | `DELETE /api/v1/documentos/{id}` | Excluir arquivo e dados relacionados |
+| `POST /api/v1/sugestoes` | Enviar sugestão, erro ou dificuldade com até 3 imagens |
+| `GET /api/v1/sugestoes` | Consulta administrativa paginada, protegida por `X-Admin-Key` |
 
 Todos os endpoints de documento exigem `Authorization: Bearer <access_token>`.
+O envio de sugestões também usa a sessão da pessoa. A listagem completa usa uma chave
+administrativa separada e nunca aceita a service role do Supabase como credencial externa.
 
 ## Qualidade e segurança
 
