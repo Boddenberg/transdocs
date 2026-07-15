@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, Query, UploadFile
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencias import UsuarioAtual
 from app.aplicacao.preenchimentos.catalogo import listar_tipos_preenchimento
@@ -12,10 +13,13 @@ from app.aplicacao.preenchimentos.servico import (
     obter_servico_preenchimentos,
 )
 from app.core.configuracao import obter_configuracoes
-from app.core.erros import ErroRequisicao
+from app.core.erros import ErroRequisicao, ErroServicoExterno
 from app.dominio.arquivos import validar_arquivo
+from app.dominio.audio import validar_audio
 from app.dominio.documentos import TipoDocumentoEnviado
+from app.dominio.falhas import FalhaOpenAI
 from app.dominio.preenchimentos import validar_arquivo_docx
+from app.infraestrutura.openai.transcritor import obter_transcritor_audio_openai
 
 router = APIRouter(prefix="/preenchimentos", tags=["preenchimentos"])
 
@@ -26,10 +30,44 @@ class GeracaoPreenchimento(BaseModel):
     permitir_incompleto: bool = False
 
 
+class TranscricaoAudio(BaseModel):
+    texto: str = Field(max_length=8000)
+
+
 @router.get("/tipos")
 def listar_tipos(usuario: UsuarioAtual) -> list[dict[str, Any]]:
     del usuario
     return listar_tipos_preenchimento()
+
+
+@router.post("/transcrever-audio")
+async def transcrever_audio(
+    usuario: UsuarioAtual,
+    arquivo: Annotated[UploadFile, File(description="Áudio da negociação")],
+) -> TranscricaoAudio:
+    del usuario
+    configuracoes = obter_configuracoes()
+    conteudo = await _ler_com_limite(
+        arquivo,
+        configuracoes.limite_analise_completa_bytes,
+    )
+    audio = validar_audio(
+        conteudo=conteudo,
+        nome=arquivo.filename,
+        tipo_mime=arquivo.content_type,
+        limite_bytes=configuracoes.limite_analise_completa_bytes,
+    )
+    try:
+        texto = await run_in_threadpool(
+            obter_transcritor_audio_openai().transcrever,
+            audio,
+        )
+    except FalhaOpenAI as erro:
+        raise ErroServicoExterno(
+            "OpenAI",
+            "Não foi possível transcrever o áudio agora. Tente novamente.",
+        ) from erro
+    return TranscricaoAudio(texto=texto)
 
 
 @router.post("", status_code=202)

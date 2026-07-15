@@ -31,6 +31,10 @@ class Configuracoes(BaseSettings):
 
     openai_api_key: str = Field("", validation_alias="OPENAI_API_KEY")
     openai_modelo: str = Field("gpt-5.4-mini", validation_alias="OPENAI_MODEL")
+    openai_modelo_transcricao: str = Field(
+        "gpt-4o-mini-transcribe",
+        validation_alias="OPENAI_TRANSCRIPTION_MODEL",
+    )
     openai_timeout_segundos: float = Field(90, validation_alias="OPENAI_TIMEOUT_SECONDS")
     openai_preco_entrada_usd_milhao: Decimal = Field(
         Decimal("0.75"), validation_alias="OPENAI_INPUT_USD_PER_MILLION"
