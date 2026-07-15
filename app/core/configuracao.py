@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Configuracoes(BaseSettings):
-    nome_aplicacao: str = Field("TransDocs API", validation_alias="APP_NAME")
+    nome_aplicacao: str = Field("ThiagoDocs API", validation_alias="APP_NAME")
     ambiente: str = Field("local", validation_alias="APP_ENV")
     prefixo_api: str = Field("/api/v1", validation_alias="API_PREFIX")
     origens_cors: Annotated[list[str], NoDecode] = Field(
@@ -57,6 +57,13 @@ class Configuracoes(BaseSettings):
         if isinstance(valor, list):
             return valor
         raise ValueError("CORS_ORIGINS deve ser uma lista separada por vírgulas")
+
+    @field_validator("nome_aplicacao", mode="before")
+    @classmethod
+    def migrar_nome_legado(cls, valor: Any) -> Any:
+        if isinstance(valor, str) and valor.strip().casefold() in {"transdocs", "transdocs api"}:
+            return "ThiagoDocs API"
+        return valor
 
     @model_validator(mode="after")
     def validar_producao(self) -> "Configuracoes":

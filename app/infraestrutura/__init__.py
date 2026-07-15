@@ -1,1 +1,1 @@
-"""Integrações externas do TransDocs."""
+"""Integrações externas do ThiagoDocs."""

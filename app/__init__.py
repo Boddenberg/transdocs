@@ -1,1 +1,1 @@
-"""TransDocs API."""
+"""ThiagoDocs API."""
