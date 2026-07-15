@@ -82,6 +82,22 @@ class RepositorioDocumentos:
             "atualizar o documento",
         )
 
+    def reivindicar_processamento(
+        self, documento_id: UUID, usuario_id: UUID
+    ) -> dict[str, Any] | None:
+        resposta = self._executar(
+            lambda: (
+                self._cliente.table("documentos")
+                .update({"status": "processando", "codigo_erro": None})
+                .eq("id", str(documento_id))
+                .eq("usuario_id", str(usuario_id))
+                .eq("status", "pendente")
+                .execute()
+            ),
+            "iniciar o processamento",
+        )
+        return _primeiro(resposta.data)
+
     def excluir(self, documento_id: UUID, usuario_id: UUID) -> None:
         self._executar(
             lambda: (
