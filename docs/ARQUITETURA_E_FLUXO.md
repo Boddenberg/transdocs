@@ -1,0 +1,84 @@
+# Arquitetura, fluxo e decisões
+
+## Visão geral
+
+```text
+Navegador ── Supabase Auth ── access token
+    │
+    └── TransDocs API ── valida token ── escopo usuario_id
+            ├── Supabase PostgreSQL (RLS)
+            ├── Supabase Storage privado
+            └── OpenAI Responses API
+```
+
+O front autentica pela anon key pública e envia o access token. A service role e a
+chave OpenAI existem somente no back-end. O projeto Padoka é apenas referência de
+padrões; não é dependência e nenhum domínio, banco, bucket ou segredo é compartilhado.
+
+## Estados
+
+```text
+pendente -> processando -> concluido
+                       ├-> erro_leitura
+                       ├-> erro_arquivo
+                       ├-> erro_openai
+                       └-> erro_interno
+```
+
+Uma atualização condicional de `pendente` para `processando` funciona como reivindicação
+e evita duas chamadas simultâneas. Reprocessamento é uma ação explícita do usuário.
+
+## Resultado persistido
+
+```json
+{
+  "tipo_documento": null,
+  "resumo": null,
+  "pessoas": [],
+  "empresas": [],
+  "documentos_identificados": [],
+  "enderecos": [],
+  "datas": [],
+  "valores": [],
+  "imoveis": [],
+  "campos_adicionais": [],
+  "alertas": [],
+  "campos_nao_encontrados": []
+}
+```
+
+Cada item encontrado contém `valor`, `tipo`, `pagina`, `trecho`, `confianca`,
+`precisa_revisao`, `confirmado` e `editado`. Pessoas e empresas também podem conter
+`papel`. Confiança abaixo de 0,80 é forçada para revisão pelo código, mesmo que o modelo
+não a marque.
+
+## Estratégia de leitura
+
+- PDF textual: pypdf extrai texto com marcadores de página. O texto é truncado no
+  limite configurado antes da chamada.
+- PDF sem texto legível: o PDF é enviado como `input_file`; modelos com visão recebem
+  texto e imagens das páginas.
+- Imagem: base64 em `input_image` com detalhe alto.
+- `store=False` reduz retenção no provedor; consulte também os controles contratuais e
+  de dados da conta OpenAI usada em produção.
+
+## Decisões de segurança
+
+- Assinatura binária é verificada além de extensão/MIME.
+- Hash SHA-256 único por usuário impede duplicidade acidental.
+- Caminho de Storage começa por `usuario_id/documento_id`.
+- RLS é habilitada e forçada em todas as tabelas com dados pessoais.
+- O back-end repete o filtro de propriedade mesmo com service role.
+- Correção nunca substitui silenciosamente o resultado: gera registro antes/depois.
+- Logs usam somente método, caminho, status, duração, ID técnico e tipo de falha.
+
+## Evoluções recomendadas
+
+1. Fila persistente e worker Railway separado, com idempotency key.
+2. OCR local/privado para reduzir envio visual e custo em documentos simples.
+3. Organizações/cartórios, membros e papéis, preservando RLS por escopo.
+4. Webhooks ou Supabase Realtime para substituir acompanhamento periódico.
+5. Política automatizada de expiração/retenção configurável por organização.
+6. Avaliações com conjunto documental anonimizado e métricas por tipo de campo.
+7. Testes unitários, integração com Supabase local e testes de autorização negativos.
+
