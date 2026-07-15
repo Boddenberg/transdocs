@@ -1,9 +1,29 @@
+import unicodedata
 from typing import Any
 from uuid import UUID
 
 from app.core.erros import ErroServicoExterno
 from app.infraestrutura.supabase.cliente import obter_cliente_supabase
 from supabase import Client
+
+CAMPOS_LISTAGEM = ",".join(
+    (
+        "id",
+        "usuario_id",
+        "nome_original",
+        "nome_seguro",
+        "tipo_mime",
+        "tipo_arquivo",
+        "tamanho_bytes",
+        "total_paginas",
+        "status",
+        "revisado",
+        "codigo_erro",
+        "criado_em",
+        "atualizado_em",
+        "ultima_alteracao_em",
+    )
+)
 
 
 class RepositorioDocumentos:
@@ -53,9 +73,15 @@ class RepositorioDocumentos:
         limite: int,
         deslocamento: int,
     ) -> list[dict[str, Any]]:
-        consulta = self._cliente.table("documentos").select("*").eq("usuario_id", str(usuario_id))
+        consulta = (
+            self._cliente.table("documentos")
+            .select(CAMPOS_LISTAGEM)
+            .eq("usuario_id", str(usuario_id))
+        )
         if busca:
-            consulta = consulta.ilike("nome_original", f"%{_limpar_busca(busca)}%")
+            termo = _limpar_busca(busca)
+            if termo:
+                consulta = consulta.ilike("texto_busca", f"%{termo}%")
         if status:
             consulta = consulta.eq("status", status)
         resposta = self._executar(
@@ -176,7 +202,12 @@ def _primeiro(dados: Any) -> dict[str, Any] | None:
 
 
 def _limpar_busca(valor: str) -> str:
-    return valor.replace("%", "").replace("_", "").strip()[:100]
+    sem_acentos = "".join(
+        caractere
+        for caractere in unicodedata.normalize("NFKD", valor.casefold())
+        if not unicodedata.combining(caractere)
+    )
+    return "".join(caractere for caractere in sem_acentos if caractere.isalnum())[:100]
 
 
 def obter_repositorio_documentos() -> RepositorioDocumentos:
