@@ -50,7 +50,8 @@ No preenchimento, a pessoa seleciona um tipo, envia uma minuta DOCX e adiciona f
 opcionais por categoria. A API detecta somente marcadores explícitos, preserva o texto já
 preenchido, exige fonte e trecho para cada sugestão e mantém lacunas sem comprovação
 intactas. O caso fica salvo para receber novos documentos depois e pode gerar uma versão
-parcial ou completa.
+parcial ou completa. Na conferência, valores podem ser ajustados ou informados manualmente
+pelo usuário; a API valida a seleção e registra o valor documental original para auditoria.
 
 Detalhes e estrutura do resultado: [docs/ARQUITETURA_E_FLUXO.md](docs/ARQUITETURA_E_FLUXO.md).
 

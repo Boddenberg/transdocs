@@ -22,6 +22,7 @@ router = APIRouter(prefix="/preenchimentos", tags=["preenchimentos"])
 
 class GeracaoPreenchimento(BaseModel):
     campos_incluir: list[str] = Field(default_factory=list, max_length=200)
+    valores_campos: dict[str, str] = Field(default_factory=dict, max_length=200)
     permitir_incompleto: bool = False
 
 
@@ -123,6 +124,7 @@ def gerar_documento(
         preenchimento_id=preenchimento_id,
         usuario_id=usuario.id,
         campos_incluir=dados.campos_incluir,
+        valores_campos=dados.valores_campos,
         permitir_incompleto=dados.permitir_incompleto,
     )
 

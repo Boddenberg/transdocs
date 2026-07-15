@@ -50,6 +50,8 @@ class CampoPreenchimento(BaseModel):
     contexto: str
     status: StatusCampoPreenchimento
     valor: str | None = Field(default=None, max_length=1000)
+    valor_original: str | None = Field(default=None, max_length=1000)
+    editado_pelo_usuario: bool = False
     fonte_id: str | None = None
     fonte_nome: str | None = Field(default=None, max_length=255)
     categoria_fonte: str | None = Field(default=None, max_length=80)
@@ -60,7 +62,14 @@ class CampoPreenchimento(BaseModel):
     justificativa: str = Field(default="", max_length=800)
     localizador: LocalizadorCampoDocx
 
-    @field_validator("valor", "trecho", "fonte_id", "fonte_nome", "categoria_fonte")
+    @field_validator(
+        "valor",
+        "valor_original",
+        "trecho",
+        "fonte_id",
+        "fonte_nome",
+        "categoria_fonte",
+    )
     @classmethod
     def limpar_opcional(cls, valor: Any) -> Any:
         if isinstance(valor, str):

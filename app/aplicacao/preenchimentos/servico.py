@@ -160,6 +160,7 @@ class ServicoPreenchimentos:
         preenchimento_id: UUID,
         usuario_id: UUID,
         campos_incluir: list[str],
+        valores_campos: dict[str, str] | None,
         permitir_incompleto: bool,
     ) -> dict[str, Any]:
         preenchimento = self._obter(preenchimento_id, usuario_id)
@@ -178,21 +179,20 @@ class ServicoPreenchimentos:
         desconhecidos = ids_selecionados - campos_por_id.keys()
         if desconhecidos:
             raise ErroRequisicao("A seleção contém campos que não pertencem à minuta.")
-        invalidos = [
-            campo.rotulo
-            for campo in resultado.campos
-            if campo.id in ids_selecionados
-            and (campo.status != StatusCampoPreenchimento.ENCONTRADO or not campo.valor)
-        ]
-        if invalidos:
-            raise ErroRequisicao(
-                "Somente campos comprovados podem ser incluídos.", {"campos": invalidos}
-            )
+        valores_manuais = _validar_valores_manuais(
+            valores_campos or {},
+            campos_por_id=campos_por_id,
+            ids_selecionados=ids_selecionados,
+        )
+        substituicoes = _resolver_substituicoes(
+            resultado,
+            ids_selecionados=ids_selecionados,
+            valores_manuais=valores_manuais,
+        )
         pendentes = [
             campo.rotulo
             for campo in resultado.campos
-            if campo.status != StatusCampoPreenchimento.ENCONTRADO
-            or campo.id not in ids_selecionados
+            if campo.id not in substituicoes
         ]
         if pendentes and not permitir_incompleto:
             raise ErroConflito(
@@ -200,11 +200,6 @@ class ServicoPreenchimentos:
             )
 
         minuta = self._armazenamento.baixar(preenchimento["caminho_minuta"])
-        substituicoes = {
-            campo.id: campo.valor or ""
-            for campo in resultado.campos
-            if campo.id in ids_selecionados
-        }
         documento = preencher_docx(
             minuta,
             campos=resultado.campos,
@@ -228,6 +223,9 @@ class ServicoPreenchimentos:
                 usuario_id,
                 {
                     "status": "concluido",
+                    "resultado": _registrar_edicoes_manuais(
+                        resultado, valores_manuais
+                    ).model_dump(mode="json"),
                     "caminho_resultado": caminho_resultado,
                     "nome_resultado": nome_resultado,
                     "codigo_erro": None,
@@ -324,6 +322,75 @@ def _publicar(
 def _nome_resultado(nome_minuta: str) -> str:
     base = Path(nome_minuta).stem.strip() or "escritura"
     return f"{base[:160]}-preenchida.docx"
+
+
+def _validar_valores_manuais(
+    valores: dict[str, str],
+    *,
+    campos_por_id: dict[str, Any],
+    ids_selecionados: set[str],
+) -> dict[str, str]:
+    desconhecidos = valores.keys() - campos_por_id.keys()
+    if desconhecidos:
+        raise ErroRequisicao("Há valores para campos que não pertencem à minuta.")
+    fora_selecao = valores.keys() - ids_selecionados
+    if fora_selecao:
+        raise ErroRequisicao("Todo valor editado precisa estar selecionado para inclusão.")
+    return {campo_id: _limpar_valor_manual(valor) for campo_id, valor in valores.items()}
+
+
+def _resolver_substituicoes(
+    resultado: ResultadoPreenchimento,
+    *,
+    ids_selecionados: set[str],
+    valores_manuais: dict[str, str],
+) -> dict[str, str]:
+    substituicoes: dict[str, str] = {}
+    invalidos: list[str] = []
+    for campo in resultado.campos:
+        if campo.id not in ids_selecionados:
+            continue
+        if campo.id in valores_manuais:
+            substituicoes[campo.id] = valores_manuais[campo.id]
+        elif campo.valor and (
+            campo.status == StatusCampoPreenchimento.ENCONTRADO
+            or campo.editado_pelo_usuario
+        ):
+            substituicoes[campo.id] = campo.valor
+        else:
+            invalidos.append(campo.rotulo)
+    if invalidos:
+        raise ErroRequisicao(
+            "Preencha manualmente ou anexe uma fonte para os campos selecionados.",
+            {"campos": invalidos},
+        )
+    return substituicoes
+
+
+def _registrar_edicoes_manuais(
+    resultado: ResultadoPreenchimento, valores_manuais: dict[str, str]
+) -> ResultadoPreenchimento:
+    atualizado = resultado.model_copy(deep=True)
+    for campo in atualizado.campos:
+        if campo.id not in valores_manuais:
+            continue
+        if not campo.editado_pelo_usuario:
+            campo.valor_original = campo.valor
+        campo.valor = valores_manuais[campo.id]
+        campo.editado_pelo_usuario = True
+    return atualizado
+
+
+def _limpar_valor_manual(valor: str) -> str:
+    if any(
+        ord(caractere) < 32 and caractere not in {"\t", "\n", "\r"}
+        for caractere in valor
+    ):
+        raise ErroRequisicao("Um valor editado contém caracteres inválidos.")
+    limpo = " ".join(valor.split())
+    if not limpo or len(limpo) > 1000:
+        raise ErroRequisicao("Um valor editado está vazio ou excede o limite permitido.")
+    return limpo
 
 
 def _nome_seguro(nome: str) -> str:
