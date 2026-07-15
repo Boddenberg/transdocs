@@ -5,7 +5,7 @@
 ```text
 Navegador ── Supabase Auth ── access token
     │
-    └── TransDocs API ── valida token ── escopo usuario_id
+    └── ThiagoDocs API ── valida token ── escopo usuario_id
             ├── Supabase PostgreSQL (RLS)
             ├── Supabase Storage privado
             └── OpenAI Responses API
@@ -81,4 +81,3 @@ não a marque.
 5. Política automatizada de expiração/retenção configurável por organização.
 6. Avaliações com conjunto documental anonimizado e métricas por tipo de campo.
 7. Testes unitários, integração com Supabase local e testes de autorização negativos.
-

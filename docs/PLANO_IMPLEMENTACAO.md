@@ -1,4 +1,4 @@
-# Plano de implementação do TransDocs
+# Plano de implementação do ThiagoDocs
 
 ## Referência técnica auditada
 
@@ -6,7 +6,7 @@ Foram inspecionados `padoka100` e `padoka100-web` após atualização segura por
 `git pull --ff-only`. Os conceitos reaproveitados são configuração por ambiente,
 FastAPI, Supabase Auth, cliente de API central, Bearer token, OpenAI Responses com
 saída estruturada e deploy Railway com health check. Nenhuma regra de negócio,
-credencial, URL privada, tabela ou bucket da Padoka faz parte do TransDocs.
+credencial, URL privada, tabela ou bucket da Padoka faz parte do ThiagoDocs.
 
 ## Execução
 
@@ -28,4 +28,3 @@ credencial, URL privada, tabela ou bucket da Padoka faz parte do TransDocs.
 Supabase, Railway e domínios serão provisionados automaticamente somente se as
 sessões locais estiverem válidas. Sem autorização externa, migrations, manifests,
 variáveis e instruções serão entregues prontos, sem bloquear a implementação.
-

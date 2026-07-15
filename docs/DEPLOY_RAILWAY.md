@@ -1,6 +1,6 @@
 # Deploy independente no Railway
 
-O TransDocs não deve usar o projeto, serviço ou variáveis da Padoka.
+O ThiagoDocs não deve usar o projeto, serviço ou variáveis da Padoka.
 
 ## Estado desta entrega
 
@@ -14,7 +14,7 @@ serviço, domínio ou variável externa foi criado automaticamente.
 2. Adicione um serviço a partir do repositório GitHub `transdocs`, branch `main`.
 3. Confirme Railpack e o start command do `railway.json`.
 4. Preencha todas as variáveis de `.env.example`; use valores do projeto Supabase
-   exclusivo do TransDocs.
+   exclusivo do ThiagoDocs.
 5. Defina `APP_ENV=production` e `CORS_ORIGINS=https://DOMINIO-DO-FRONT`.
 6. Gere um domínio para a API.
 7. Valide `https://DOMINIO-DA-API/health` e confirme `status: ok`.

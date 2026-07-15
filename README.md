@@ -1,7 +1,7 @@
-# TransDocs API
+# ThiagoDocs API
 
 API independente para leitura assistida, extração estruturada e conferência humana de
-PDFs e imagens. O TransDocs não valida autenticidade nem validade jurídica: toda
+PDFs e imagens. O ThiagoDocs não valida autenticidade nem validade jurídica: toda
 informação extraída deve ser conferida no documento original.
 
 ## Tecnologias
@@ -70,7 +70,7 @@ documentação interativa em `/docs`.
 | `APP_ENV` | `local` ou `production` |
 | `API_PREFIX` | Prefixo, padrão `/api/v1` |
 | `CORS_ORIGINS` | Origens exatas, separadas por vírgula; sem wildcard |
-| `SUPABASE_URL` | URL do projeto exclusivo do TransDocs |
+| `SUPABASE_URL` | URL do projeto exclusivo do ThiagoDocs |
 | `SUPABASE_ANON_KEY` | Chave pública usada para Auth |
 | `SUPABASE_SERVICE_ROLE_KEY` | Segredo somente do back-end |
 | `SUPABASE_DOCUMENTS_BUCKET` | Bucket privado, padrão `documentos` |
