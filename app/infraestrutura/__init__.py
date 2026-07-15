@@ -1,2 +1,1 @@
 """Integrações externas do TransDocs."""
-

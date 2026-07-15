@@ -12,4 +12,3 @@ class UsuarioAutenticado:
 class SessaoAutenticada:
     usuario: UsuarioAutenticado
     token: str
-

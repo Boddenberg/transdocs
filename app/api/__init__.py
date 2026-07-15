@@ -1,2 +1,1 @@
 """Camada HTTP da aplicação."""
-

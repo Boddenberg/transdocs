@@ -26,12 +26,8 @@ class Configuracoes(BaseSettings):
     openai_timeout_segundos: float = Field(90, validation_alias="OPENAI_TIMEOUT_SECONDS")
 
     limite_upload_bytes: int = Field(25 * 1024 * 1024, validation_alias="MAX_UPLOAD_BYTES")
-    limite_texto_extraido: int = Field(
-        120_000, validation_alias="MAX_EXTRACTED_TEXT_CHARS"
-    )
-    validade_url_assinada_segundos: int = Field(
-        300, validation_alias="SIGNED_URL_TTL_SECONDS"
-    )
+    limite_texto_extraido: int = Field(120_000, validation_alias="MAX_EXTRACTED_TEXT_CHARS")
+    validade_url_assinada_segundos: int = Field(300, validation_alias="SIGNED_URL_TTL_SECONDS")
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -61,11 +57,7 @@ class Configuracoes(BaseSettings):
 
     @property
     def supabase_configurado(self) -> bool:
-        return bool(
-            self.supabase_url
-            and self.supabase_anon_key
-            and self.supabase_service_role_key
-        )
+        return bool(self.supabase_url and self.supabase_anon_key and self.supabase_service_role_key)
 
     @property
     def openai_configurada(self) -> bool:
@@ -75,4 +67,3 @@ class Configuracoes(BaseSettings):
 @lru_cache
 def obter_configuracoes() -> Configuracoes:
     return Configuracoes()
-

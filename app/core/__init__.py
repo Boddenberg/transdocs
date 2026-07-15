@@ -1,2 +1,1 @@
 """Configuração e serviços transversais."""
-

@@ -31,4 +31,3 @@ def configurar_logs() -> None:
     raiz.handlers.clear()
     raiz.addHandler(manipulador)
     raiz.setLevel(logging.INFO)
-

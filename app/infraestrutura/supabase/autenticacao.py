@@ -148,4 +148,3 @@ class AutenticacaoSupabase:
 @lru_cache
 def obter_autenticacao_supabase() -> AutenticacaoSupabase:
     return AutenticacaoSupabase(obter_configuracoes())
-

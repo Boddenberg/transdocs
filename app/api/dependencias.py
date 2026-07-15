@@ -9,9 +9,7 @@ from app.infraestrutura.supabase.autenticacao import (
     obter_autenticacao_supabase,
 )
 
-AutenticacaoAtual = Annotated[
-    AutenticacaoSupabase, Depends(obter_autenticacao_supabase)
-]
+AutenticacaoAtual = Annotated[AutenticacaoSupabase, Depends(obter_autenticacao_supabase)]
 
 
 def obter_sessao_autenticada(

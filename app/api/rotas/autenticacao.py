@@ -11,9 +11,7 @@ from app.infraestrutura.supabase.autenticacao import (
 )
 
 router = APIRouter(prefix="/auth", tags=["autenticação"])
-AutenticacaoAtual = Annotated[
-    AutenticacaoSupabase, Depends(obter_autenticacao_supabase)
-]
+AutenticacaoAtual = Annotated[AutenticacaoSupabase, Depends(obter_autenticacao_supabase)]
 
 
 class Credenciais(BaseModel):

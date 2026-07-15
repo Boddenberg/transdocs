@@ -1,2 +1,1 @@
 """Adaptadores do Supabase."""
-
