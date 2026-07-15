@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import UUID
 
 import httpx
@@ -39,6 +40,7 @@ class AutenticacaoSupabase:
     def solicitar_recuperacao(self, *, email: str, redirecionamento: str | None) -> None:
         corpo: dict[str, str] = {"email": email}
         if redirecionamento:
+            self._validar_redirecionamento(redirecionamento)
             corpo["redirect_to"] = redirecionamento
         self._requisitar("POST", "/auth/v1/recover", json=corpo)
 
@@ -102,6 +104,13 @@ class AutenticacaoSupabase:
             ausentes.append("SUPABASE_ANON_KEY")
         if ausentes:
             raise ErroConfiguracao("Supabase Auth", ausentes)
+
+    def _validar_redirecionamento(self, redirecionamento: str) -> None:
+        destino = urlsplit(redirecionamento)
+        origem = f"{destino.scheme}://{destino.netloc}".rstrip("/")
+        permitidas = self._configuracoes.origens_cors or ["http://localhost:3000"]
+        if destino.scheme not in {"http", "https"} or origem not in permitidas:
+            raise ErroRequisicao("URL de recuperação não permitida.")
 
     @staticmethod
     def _traduzir_erro(resposta: httpx.Response) -> None:
