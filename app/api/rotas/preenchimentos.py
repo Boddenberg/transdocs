@@ -2,7 +2,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, Query, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencias import UsuarioAtual
@@ -10,6 +10,7 @@ from app.aplicacao.preenchimentos.catalogo import listar_tipos_preenchimento
 from app.aplicacao.preenchimentos.modelos import obter_servico_modelos_preenchimento
 from app.aplicacao.preenchimentos.processador import obter_processador_preenchimento
 from app.aplicacao.preenchimentos.servico import (
+    FonteTextoPreenchimento,
     FonteUploadPreenchimento,
     obter_servico_preenchimentos,
 )
@@ -35,6 +36,14 @@ class GeracaoPreenchimento(BaseModel):
 
 class TranscricaoAudio(BaseModel):
     texto: str = Field(max_length=8000)
+
+
+class FonteTextoEntrada(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    categoria: str = Field(min_length=1, max_length=80)
+    nome: str = Field(min_length=1, max_length=120)
+    texto: str = Field(min_length=1, max_length=12000)
 
 
 @router.get("/tipos")
@@ -127,6 +136,7 @@ async def criar_preenchimento(
     modelo_id: Annotated[str | None, Form(max_length=120)] = None,
     instrucoes_negociacao: Annotated[str, Form(max_length=8000)] = "",
     dados_negociacao: Annotated[str, Form(max_length=20000)] = "",
+    fontes_texto: Annotated[str, Form(max_length=50000)] = "",
     categorias_fontes: Annotated[list[str] | None, Form()] = None,
     arquivos_fontes: Annotated[list[UploadFile] | None, File()] = None,
 ) -> dict[str, Any]:
@@ -170,6 +180,7 @@ async def criar_preenchimento(
         tipo_documento=tipo_documento,
         arquivo_base=base,
         fontes=fontes,
+        fontes_texto=_validar_fontes_texto(fontes_texto),
         instrucoes_negociacao=instrucoes_negociacao,
         dados_negociacao=_validar_dados_negociacao(dados_negociacao),
         modo_criacao=modo_criacao,
@@ -307,6 +318,25 @@ def _validar_dados_negociacao(conteudo: str) -> DadosNegociacao | None:
         raise ErroRequisicao(
             "Confira o preço e as formas de pagamento informadas."
         ) from erro
+
+
+def _validar_fontes_texto(conteudo: str) -> list[FonteTextoPreenchimento]:
+    if not conteudo.strip():
+        return []
+    try:
+        entradas = TypeAdapter(list[FonteTextoEntrada]).validate_json(conteudo)
+    except ValueError as erro:
+        raise ErroRequisicao(
+            "Confira as informações digitadas nas etapas da minuta."
+        ) from erro
+    return [
+        FonteTextoPreenchimento(
+            categoria=entrada.categoria,
+            nome=entrada.nome,
+            texto=entrada.texto,
+        )
+        for entrada in entradas
+    ]
 
 
 async def _ler_com_limite(arquivo: UploadFile, limite: int) -> bytes:

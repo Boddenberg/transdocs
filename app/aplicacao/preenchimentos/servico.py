@@ -35,6 +35,13 @@ class FonteUploadPreenchimento:
     arquivo: ArquivoValidado
 
 
+@dataclass(frozen=True, slots=True)
+class FonteTextoPreenchimento:
+    categoria: str
+    nome: str
+    texto: str
+
+
 class ServicoPreenchimentos:
     def __init__(
         self,
@@ -53,6 +60,7 @@ class ServicoPreenchimentos:
         tipo_documento: str,
         arquivo_base: ArquivoDocxValidado,
         fontes: list[FonteUploadPreenchimento],
+        fontes_texto: list[FonteTextoPreenchimento] | None = None,
         instrucoes_negociacao: str = "",
         dados_negociacao: DadosNegociacao | None = None,
         modo_criacao: str = "completar_minuta",
@@ -65,6 +73,9 @@ class ServicoPreenchimentos:
         if modo_criacao == "documento_completo" and not modelo_referencia:
             raise ErroRequisicao("Selecione o modelo usado para criar o documento completo.")
         self._validar_fontes(tipo_documento, fontes)
+        fontes_texto = self._validar_fontes_texto(
+            tipo_documento, fontes_texto or []
+        )
         instrucoes_negociacao = _limpar_instrucoes_negociacao(
             instrucoes_negociacao
         )
@@ -106,6 +117,14 @@ class ServicoPreenchimentos:
                         if dados_negociacao is not None
                         else None
                     ),
+                    "fontes_texto": [
+                        {
+                            "categoria": fonte.categoria,
+                            "nome": fonte.nome,
+                            "texto": fonte.texto,
+                        }
+                        for fonte in fontes_texto
+                    ],
                     "modo_criacao": modo_criacao,
                     "modelo_referencia": modelo_referencia,
                     "modelo_nome": modelo_nome,
@@ -327,6 +346,46 @@ class ServicoPreenchimentos:
             raise ErroRequisicao("Envie no máximo 20 documentos comprobatórios por vez.")
         for fonte in fontes:
             validar_categoria_fonte(tipo_documento, fonte.categoria)
+
+    def _validar_fontes_texto(
+        self,
+        tipo_documento: str,
+        fontes: list[FonteTextoPreenchimento],
+    ) -> list[FonteTextoPreenchimento]:
+        if len(fontes) > 10:
+            raise ErroRequisicao("Informe no máximo 10 blocos de texto por vez.")
+        validadas: list[FonteTextoPreenchimento] = []
+        total = 0
+        for fonte in fontes:
+            validar_categoria_fonte(tipo_documento, fonte.categoria)
+            nome = fonte.nome.strip()
+            texto = fonte.texto.strip()
+            if not nome or len(nome) > 120:
+                raise ErroRequisicao("O nome de uma informação digitada é inválido.")
+            if not texto or len(texto) > 12000:
+                raise ErroRequisicao(
+                    "Cada informação digitada deve ter entre 1 e 12.000 caracteres."
+                )
+            if any(
+                ord(caractere) < 32 and caractere not in {"\t", "\n", "\r"}
+                for caractere in texto
+            ):
+                raise ErroRequisicao(
+                    "Uma informação digitada contém caracteres inválidos."
+                )
+            total += len(texto)
+            if total > 40000:
+                raise ErroRequisicao(
+                    "O conjunto de informações digitadas excede o limite permitido."
+                )
+            validadas.append(
+                FonteTextoPreenchimento(
+                    categoria=fonte.categoria,
+                    nome=nome,
+                    texto=texto,
+                )
+            )
+        return validadas
 
     def _obter(self, preenchimento_id: UUID, usuario_id: UUID) -> dict[str, Any]:
         preenchimento = self._repositorio.buscar(preenchimento_id, usuario_id)

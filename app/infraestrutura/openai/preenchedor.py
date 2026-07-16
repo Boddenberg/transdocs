@@ -41,7 +41,8 @@ class FonteParaPreenchimento:
     id: str
     categoria: str
     nome: str
-    arquivo: ArquivoValidado
+    arquivo: ArquivoValidado | None = None
+    texto: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -282,6 +283,19 @@ class ExtratorPreenchimentoOpenAI:
                 f"FONTE fonte_id={fonte.id} categoria={fonte.categoria} "
                 f"nome={fonte.nome}"
             )
+            if fonte.texto is not None:
+                texto_fonte = fonte.texto.strip()[:limite_por_fonte]
+                if not texto_fonte:
+                    continue
+                conteudo.append(
+                    {"type": "input_text", "text": f"{cabecalho}\n{texto_fonte}"}
+                )
+                evidencias[fonte.id] = _Evidencia(
+                    fonte.id, fonte.categoria, fonte.nome, texto_fonte, False
+                )
+                continue
+            if fonte.arquivo is None:
+                continue
             if fonte.arquivo.tipo == TipoDocumentoEnviado.PDF:
                 texto_pdf = extrair_texto_pdf(fonte.arquivo.conteudo, limite_por_fonte)
                 if texto_pdf.possui_texto_legivel:

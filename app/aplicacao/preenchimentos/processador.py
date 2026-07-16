@@ -58,6 +58,7 @@ class ProcessadorPreenchimento:
                 self._concluir(preenchimento_id, usuario_id, resultado, modelo=None)
                 return
             fontes = self._carregar_fontes(preenchimento_id, usuario_id)
+            fontes.extend(self._carregar_fontes_texto(preenchimento))
             resposta = obter_extrator_preenchimento_openai().analisar(
                 tipo_documento=preenchimento["tipo_documento"],
                 texto_minuta=analise.texto,
@@ -106,6 +107,28 @@ class ProcessadorPreenchimento:
                     categoria=registro["categoria"],
                     nome=registro["nome_original"],
                     arquivo=arquivo,
+                )
+            )
+        return fontes
+
+    def _carregar_fontes_texto(
+        self, preenchimento: dict
+    ) -> list[FonteParaPreenchimento]:
+        fontes: list[FonteParaPreenchimento] = []
+        for indice, registro in enumerate(preenchimento.get("fontes_texto") or [], 1):
+            if not isinstance(registro, dict):
+                continue
+            categoria = registro.get("categoria")
+            nome = registro.get("nome")
+            texto = registro.get("texto")
+            if not all(isinstance(valor, str) and valor for valor in (categoria, nome, texto)):
+                continue
+            fontes.append(
+                FonteParaPreenchimento(
+                    id=f"texto_{indice}",
+                    categoria=categoria,
+                    nome=nome,
+                    texto=texto,
                 )
             )
         return fontes
