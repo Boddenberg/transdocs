@@ -54,6 +54,7 @@ def criar_aplicacao() -> FastAPI:
     def saude() -> dict[str, object]:
         return {
             "status": "ok",
+            "release": "assistente-escritura-v2",
             "aplicacao": configuracoes.nome_aplicacao,
             "ambiente": configuracoes.ambiente,
             "supabase_configurado": configuracoes.supabase_configurado,
