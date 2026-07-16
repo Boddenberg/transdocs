@@ -105,7 +105,7 @@ Não copie valores da Padoka. Crie `.env` próprio e nunca o versione.
 
 ## Supabase
 
-1. Crie um projeto Supabase exclusivo.
+1. Use o projeto Supabase compartilhado com o FiNanças.
 2. Abra o SQL Editor e execute
    [`20260714000100_schema_inicial.sql`](supabase/migrations/20260714000100_schema_inicial.sql).
 3. Em Authentication, configure URL do front e redirects de recuperação.
@@ -125,6 +125,9 @@ A migration cria:
 - índices por usuário/status/data;
 - RLS forçada e políticas `auth.uid() = usuario_id`;
 - bucket privado, limite de 50 MB e políticas por primeira pasta do usuário.
+
+O historico e as tabelas adicionais do FiNanças estao documentados em
+[docs/SUPABASE_COMPARTILHADO.md](docs/SUPABASE_COMPARTILHADO.md).
 
 ## OpenAI
 
