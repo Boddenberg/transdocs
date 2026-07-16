@@ -63,3 +63,14 @@ def test_escreve_valores_por_extenso(valor: Decimal, esperado: str) -> None:
 
 def test_formata_reais_no_padrao_brasileiro() -> None:
     assert formatar_reais(Decimal("1234567.8")) == "R$ 1.234.567,80"
+
+
+def test_interpreta_ponto_como_separador_de_milhar_brasileiro() -> None:
+    dados = DadosNegociacao.model_validate(
+        {
+            "preco_total": "350.000",
+            "componentes": [{"meio": "transferencia", "valor": "350.000"}],
+        }
+    )
+
+    assert dados.preco_total == Decimal("350000.00")

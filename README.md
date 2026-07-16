@@ -4,6 +4,10 @@ API independente para leitura assistida, extração estruturada, preenchimento d
 conferência humana de PDFs, imagens e DOCX. O ThiagoDocs não valida autenticidade nem validade jurídica: toda
 informação extraída deve ser conferida no documento original.
 
+O fluxo de escritura de venda e compra separa documentos de vendedores, compradores e imóvel,
+valida preço e componentes de pagamento, analisa a cadeia registral da matrícula e somente gera
+o DOCX depois de confirmação humana explícita.
+
 ## Tecnologias
 
 - Python 3.12+ e FastAPI;

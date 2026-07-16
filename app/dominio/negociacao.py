@@ -118,6 +118,10 @@ def normalizar_valor_monetario(valor: Any) -> Decimal:
             raise ValueError("Informe um valor monetário.")
         if "," in texto:
             texto = texto.replace(".", "").replace(",", ".")
+        elif "." in texto:
+            grupos = texto.split(".")
+            if len(grupos) > 1 and all(len(grupo) == 3 for grupo in grupos[1:]):
+                texto = "".join(grupos)
         try:
             numero = Decimal(texto)
         except InvalidOperation as erro:

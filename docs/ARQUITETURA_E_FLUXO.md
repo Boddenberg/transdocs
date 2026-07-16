@@ -15,6 +15,23 @@ O front autentica pela anon key pública e envia o access token. A service role 
 chave OpenAI existem somente no back-end. O projeto Padoka é apenas referência de
 padrões; não é dependência e nenhum domínio, banco, bucket ou segredo é compartilhado.
 
+## Escritura assistida
+
+O registro `preenchimentos` funciona como o processo da escritura. As fontes são classificadas
+explicitamente como documentos dos vendedores, documentos dos compradores, matrícula ou valor
+venal. O preço não é enviado como narrativa solta: `dados_negociacao` valida a soma dos meios de
+pagamento e produz o valor por extenso de forma determinística.
+
+A resposta estruturada da IA contém dois produtos independentes:
+
+- blocos editáveis que poderão preencher o modelo DOCX;
+- `analise_imovel`, com identificação, descrição, provável proprietário atual, forma de
+  aquisição, atos em ordem cronológica, ônus ativos/cancelados/incertos, valor venal e divergências.
+
+Toda conclusão registral precisa apontar arquivo, página e trecho. Um ônus só permanece com estado
+`cancelado` quando o servidor encontra a referência a um ato cancelador na própria cronologia;
+caso contrário, o estado é rebaixado para `incerto`. A geração exige `revisao_confirmada=true`.
+
 ## Estados
 
 ```text
